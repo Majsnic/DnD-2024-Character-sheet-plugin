@@ -39,6 +39,14 @@ Answer those and the wizard fills in everything else for you, choosing options t
 
 Nothing here is final — every page is still fully editable before you click Create, so this is a starting point, not a lock-in. This flow only ever appears on Create Character; it has no effect on Update Character Sheet or the Level Up modal, and — matching the rest of this public release — it only ever offers the SRD-scoped classes, species, and backgrounds described under **A note on scope** below.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Overview tab](screenshots/overview.png) | ![Actions tab](screenshots/actions.png) |
+| ![Skills and Inventory](screenshots/skills-inventory.png) | ![Spells tab](screenshots/spells.png) |
+| ![Features tab](screenshots/features.png) | |
+
 ## Installation
 
 ### From Community Plugins (recommended)

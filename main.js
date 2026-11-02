@@ -72,7 +72,7 @@ const dataFolderIdInFlight = new Map();
 // built-in ones get, not just a generic Features-tab picker.
 let HOMEBREW = {
   classes: [], subclasses: [], races: [], ancestries: [], features: [], backgrounds: [],
-  choiceDefs: {}, resourceDefs: {}, statBonusDefs: {}, defenseDefs: {}, actionGrantDefs: {},
+  choiceDefs: {}, ancestryChoiceDefs: {}, resourceDefs: {}, statBonusDefs: {}, defenseDefs: {}, actionGrantDefs: {},
 };
 // Hoisted to module scope (out of buildCharSheetFields, the only place
 // that used to declare it) so the Settings tab's Homebrew Content ->
@@ -475,6 +475,15 @@ const FEAT_CATEGORIES = {
 // as Expertise/Roving already use.
 function buildHomebrewMechanicDefs() {
   const choiceDefs = {};
+  // Subset of choiceDefs that are true ancestry/lineage sub-choices (built
+  // ONLY from the homebrewAncestries loop below), as opposed to a generic
+  // "choice" mechanic registered on a homebrew subclass feature, race
+  // trait, or standalone feature - those land in choiceDefs too (so the
+  // Features-tab picker still works for them) but aren't a different "kind"
+  // of the race the way an Ancestry is, so resolveRaceSubChoice's
+  // ancestryOnly mode (see below) checks this narrower map instead of
+  // choiceDefs when deciding what's safe to show in the Overview header.
+  const ancestryChoiceDefs = {};
   const resourceDefs = {};
   const statBonusDefs = {};
   const defenseDefs = {};
@@ -589,9 +598,11 @@ function buildHomebrewMechanicDefs() {
     const options = (anc.options || []).filter((o) => o && String(o.label || "").trim());
     if (!anc.traitName || !options.length) continue;
     registerMechanic(anc.traitName, { type: "choice", count: 1, options, hint: anc.hint || "" }, anc.description);
+    const key = String(anc.traitName || "").trim().toLowerCase();
+    if (key && choiceDefs[key]) ancestryChoiceDefs[key] = choiceDefs[key];
   }
   for (const feat of HOMEBREW.features) registerMechanic(feat.name, feat.mechanic, feat.description);
-  return { choiceDefs, resourceDefs, statBonusDefs, defenseDefs, actionGrantDefs };
+  return { choiceDefs, ancestryChoiceDefs, resourceDefs, statBonusDefs, defenseDefs, actionGrantDefs };
 }
 // Same exact-then-stripped-"(...)" lookup as findFeatureChoiceDef, but for
 // the three new homebrew-only mechanic maps above - there's no built-in
@@ -633,6 +644,7 @@ function syncHomebrewFromSettings(settings) {
     features: (settings && settings.homebrewFeatures) || [],
     backgrounds: (settings && settings.homebrewBackgrounds) || [],
     choiceDefs: {},
+    ancestryChoiceDefs: {},
     resourceDefs: {},
     statBonusDefs: {},
     defenseDefs: {},
@@ -2470,6 +2482,12 @@ const RACE_TRAIT_CHOICES = {
     count: 1,
     options: ["Alert", "Crafter", "Healer", "Lucky", "Magic Initiate", "Musician", "Savage Attacker", "Skilled", "Tavern Brawler", "Tough"],
     hint: "pick your Origin feat",
+    // Not a true ancestry/lineage sub-choice (see resolveRaceSubChoice's
+    // ancestryOnly mode below) - this is Human's bonus-feat pick, not a
+    // different "kind" of Human the way Draconic Ancestry is a different
+    // kind of Dragonborn, so it shouldn't show as "Human (Alert)" in the
+    // Overview header the way a real ancestry pick shows as "Elf (Wood Elf)".
+    ancestryDisplay: false,
     describe: {
       Alert: "Bonus to Initiative rolls, and you can swap your initiative with a willing ally's.",
       Crafter: "Faster, cheaper crafting and buying of ordinary goods.",
@@ -2500,6 +2518,10 @@ const RACE_TRAIT_CHOICES = {
     // applyProficiencyToSkill, the same mechanism grantsExpertise already
     // uses for Expertise-granting picks, just without doubling the bonus.
     grantsSkillProficiency: true,
+    // See the matching comment on "versatile" above - Skillful is a skill
+    // pick, not an ancestry/lineage, so the Overview header should read
+    // "Human", not "Human (Acrobatics)".
+    ancestryDisplay: false,
   },
   // Hill/Mountain Dwarf's own "Tool Proficiency" trait (see RACE_TRAITS
   // above) - previously plain flavor text with no picker at all. Adding it
@@ -2514,6 +2536,9 @@ const RACE_TRAIT_CHOICES = {
     count: 1,
     options: ["Smith's Tools", "Brewer's Supplies", "Mason's Tools"],
     hint: "pick your dwarven tool proficiency",
+    // Same reasoning as Human's Versatile/Skillful above - a tool pick, not
+    // a different kind of Dwarf, so it stays out of the Overview header.
+    ancestryDisplay: false,
   },
 };
 for (const [key, def] of Object.entries(RACE_TRAIT_CHOICES)) {
@@ -2544,16 +2569,37 @@ function deriveSensesFromRace(raceName) {
 // species sub-choice trait (Elven Lineage, Draconic Ancestry, Fiendish
 // Legacy, etc. - see RACE_TRAIT_CHOICES above - or a homebrew Ancestry, see
 // HOMEBREW.choiceDefs/homebrewAncestries) that's already been resolved and
-// returns its chosen value (e.g. "Wood Elf") - used by the Overview tab to
-// show "Elf (Wood Elf)" instead of just "Elf". Returns "" if the
-// character's race has no such trait, or it hasn't been chosen yet.
-function resolveRaceSubChoice(limitedUses) {
+// returns its chosen value (e.g. "Wood Elf") - used by the Update Character
+// Sheet modal to pre-select the Ancestry dropdown (see findRaceSubChoiceTrait/
+// buildCharSheetFields), and by the Overview tab to show "Elf (Wood Elf)"
+// instead of just "Elf". Returns "" if the character's race has no such
+// trait, or it hasn't been chosen yet.
+//
+// opts.ancestryOnly (used by the Overview tab only - see OverviewTracker.
+// render) restricts matches to genuine ancestry/lineage sub-choices, i.e.
+// ones that represent a different "kind" of the race the way Draconic
+// Ancestry is a different kind of Dragonborn. A handful of RACE_TRAIT_CHOICES
+// entries (versatile/skillful/tool proficiency) are registered here purely
+// so they reuse the same Features-tab/Page-1 picker machinery as a real
+// ancestry choice, even though they're just a feat/skill/tool pick - those
+// are flagged `ancestryDisplay: false` and skipped in this mode so a Human
+// who picked Acrobatics via Skillful doesn't show up as "Human (Acrobatics)".
+// Homebrew content gets the same treatment via HOMEBREW.ancestryChoiceDefs,
+// which (unlike HOMEBREW.choiceDefs) only contains entries built from the
+// homebrewAncestries list itself, not every homebrew "choice" mechanic.
+function resolveRaceSubChoice(limitedUses, opts) {
+  const ancestryOnly = !!(opts && opts.ancestryOnly);
   for (const item of limitedUses || []) {
     const lower = String((item && item.name) || "").trim().toLowerCase();
-    if (RACE_TRAIT_CHOICES[lower] || HOMEBREW.choiceDefs[lower]) {
-      const { chosen } = splitChosenSuffix(item.description);
-      if (chosen.length) return chosen[0];
+    const builtIn = RACE_TRAIT_CHOICES[lower];
+    const matched = builtIn || HOMEBREW.choiceDefs[lower];
+    if (!matched) continue;
+    if (ancestryOnly) {
+      const isAncestry = builtIn ? builtIn.ancestryDisplay !== false : !!HOMEBREW.ancestryChoiceDefs[lower];
+      if (!isAncestry) continue;
     }
+    const { chosen } = splitChosenSuffix(item.description);
+    if (chosen.length) return chosen[0];
   }
   return "";
 }
@@ -5770,6 +5816,18 @@ class ConditionsTracker extends MarkdownRenderChild {
     // wrote. A cache-driven listener here would race against that (the
     // cache isn't guaranteed to be updated immediately after a write) and
     // could silently overwrite a correct render with a stale one.
+    //
+    // This custom event is the safe exception (same idea as HpTracker's
+    // "dnd-sheet:main-file-changed"): it's only fired by OTHER writers -
+    // currently the Roll Initiative plugin's live combat sync - never by
+    // this tracker's own buttons, and it
+    // carries the exact frontmatter that was just written, so there's no
+    // stale-cache race.
+    this.registerEvent(
+      this.app.workspace.on("dnd-sheet:conditions-changed", (path, condFm) => {
+        if (path === this.mainFile.path) this.render(condFm);
+      })
+    );
   }
 
   async ensureSubFile() {
@@ -14717,7 +14775,7 @@ class OverviewTracker extends MarkdownRenderChild {
     const featuresFileForRace = await ensureFeaturesSubFile(this.app, file);
     const featuresCacheForRace = this.app.metadataCache.getFileCache(featuresFileForRace);
     const featuresFmForRace = (featuresCacheForRace && featuresCacheForRace.frontmatter) || {};
-    const raceSubChoice = resolveRaceSubChoice(featuresFmForRace.limited_uses);
+    const raceSubChoice = resolveRaceSubChoice(featuresFmForRace.limited_uses, { ancestryOnly: true });
 
     // ---- Display labels ----
     const flexRow = el.createEl("div", { cls: "overview-flex-row" });
