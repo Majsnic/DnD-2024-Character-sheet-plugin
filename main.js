@@ -20248,11 +20248,69 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
     // the query only ever matches inside the Character Details callout, and
     // re-tagging an already-tagged button is a harmless no-op (classList.add
     // ignores a class that's already present).
-    this.registerMarkdownPostProcessor((el) => {
+    //
+    // This same postprocessor also tags two other structural patterns that
+    // styles.css used to express with ":has()" selectors. Both are replaced
+    // here with plain classes for the same reason: ":has()" is flagged by
+    // CSS linters as a performance concern (it forces the browser to
+    // re-evaluate ancestors whenever any descendant changes), and since this
+    // plugin already controls rendering via a postprocessor, tagging the
+    // element directly is strictly cheaper and just as reliable.
+    //
+    // 1) dnd-sheet-tag-has-button - any <p> that wraps a Meta Bind
+    //    BUTTON[...] group (detected by actually containing a <button>,
+    //    the same technique the old ":has(button)" selectors used). Lets
+    //    styles.css center/grid those paragraphs without touching this
+    //    plugin's own JS-built buttons elsewhere, which are never inside a
+    //    rendered <p>.
+    // 2) dnd-sheet-row-has-<type> - every [!row] callout gets one of these
+    //    classes per distinct data-callout type nested anywhere inside it
+    //    (including a level deeper through [!colstack]), e.g.
+    //    dnd-sheet-row-has-charinfo, dnd-sheet-row-has-saves,
+    //    dnd-sheet-row-has-skills. Replaces the old ":has(.callout[...])"
+    //    row-scoping selectors (equal-height rows, and the mobile single-
+    //    page layout's "only show rows that have content on this page"
+    //    rule) one-for-one.
+    //
+    // All three passes are idempotent (classList.add is a no-op if the class
+    // is already there), so tagDndSheetElements() is safe to call as many
+    // times as needed. That matters because Meta Bind renders its
+    // BUTTON[...] group *after* this postprocessor's first pass runs - at
+    // that point the <p> only contains the raw inline-code syntax, not yet
+    // an actual <button>, so the dnd-sheet-tag-has-button check misses it on
+    // the first call (confirmed via devtools: the <button> elements exist a
+    // moment later, but the class was never applied, since nothing re-ran
+    // the check). To catch that, a short-lived MutationObserver watches the
+    // rendered block and re-runs the same tagging whenever Meta Bind (or
+    // anything else) finishes mutating it, then disconnects itself after
+    // 2s so it doesn't linger for the life of the note.
+    const tagDndSheetElements = (el) => {
       const detailsButtons = el.querySelectorAll('.callout[data-callout="details"] button');
       for (const btn of detailsButtons) {
         if (btn.textContent.trim() === "Training") btn.classList.add("dnd-sheet-tag-training-btn");
       }
+
+      const buttonParas = el.querySelectorAll(".callout-content > p");
+      for (const p of buttonParas) {
+        if (p.querySelector("button")) p.classList.add("dnd-sheet-tag-has-button");
+      }
+
+      const rows = el.querySelectorAll('.callout[data-callout="row"]');
+      for (const row of rows) {
+        const nested = row.querySelectorAll(".callout-content .callout[data-callout]");
+        for (const n of nested) {
+          const type = n.getAttribute("data-callout");
+          if (type) row.classList.add(`dnd-sheet-row-has-${type}`);
+        }
+      }
+    };
+
+    this.registerMarkdownPostProcessor((el) => {
+      tagDndSheetElements(el);
+
+      const observer = new MutationObserver(() => tagDndSheetElements(el));
+      observer.observe(el, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 2000);
     });
   }
 
