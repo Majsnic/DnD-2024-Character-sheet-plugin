@@ -4,6 +4,12 @@ An Obsidian plugin that renders a fully interactive D&D 2024 character sheet dir
 
 Built to replace Dataview-based character sheets: instead of `dataviewjs` blocks re-rendering on every metadata change, this plugin uses its own `MarkdownRenderChild`-based code block processors, so editing one field doesn't force a multi-second refresh across the whole sheet.
 
+## Video Tutorial
+
+[![Watch the full video tutorial on YouTube](https://img.youtube.com/vi/ExLmbPfUDAM/0.jpg)](https://youtu.be/ExLmbPfUDAM)
+
+A full walkthrough — installing the plugin (and its one required dependency), creating a character two different ways, touring the finished sheet, leveling up, exporting to PDF, importing from D&D Beyond, adding homebrew content, and using it on mobile.
+
 ## Features
 
 - Full character sheet with dedicated, always-live tabs: Overview, Abilities, Saving Throws, Skills, Senses, Proficiency Bonus, Defenses, HP, Conditions, Speed, Actions, Spells, Inventory, Features, and Notes.
