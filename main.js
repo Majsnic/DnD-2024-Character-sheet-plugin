@@ -27,7 +27,7 @@ const CONDITION_INFO = {
 // loadSettings/moveDataFolder below) - every ensure*SubFile() helper and
 // tracker class reads this module-level binding directly rather than
 // threading the setting through every function signature.
-let SHARED_FOLDER = "Kompendium/Character Sheet Data";
+let SHARED_FOLDER = "Compendium/Character Sheet Data";
 
 // Reverse index: main character file path -> that character's companion-
 // folder id (see companionFilePath/ensureDataFolderId near
@@ -78,13 +78,13 @@ let HOMEBREW = {
 // that used to declare it) so the Settings tab's Homebrew Content ->
 // Subclasses section can also read the built-in class list, for its
 // "which class does this subclass belong to" dropdown.
-const CLASS_OPTIONS = ["Artificer","Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
+const CLASS_OPTIONS = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
 // Same hoisting rationale as CLASS_OPTIONS above, but for races - the
 // Settings tab's Homebrew Content -> Ancestries section needs this list
 // (plus current homebrewRaces names) for its "which race does this
 // ancestry belong to" dropdown. buildCharSheetFields below uses this same
 // module-level constant instead of declaring its own local copy.
-const RACE_OPTIONS = ["Aarakocra","Aasimar","Astral Elf","Autognome","Bugbear","Centaur","Changeling","Deep Gnome","Dhampir","Dragonborn","Duergar","Dwarf","Eladrin","Elf","Fairy","Firbolg","Genasi","Giff","Githyanki","Githzerai","Gnome","Goblin","Goliath","Grung","Hadozee","Halfling","Half-Elf","Half-Orc","Harengon","Hexblood","Hill Dwarf","Hobgoblin","Human","Kalashtar","Kenku","Kobold","Leonin","Lizardfolk","Locathah","Loxodon","Minotaur","Mountain Dwarf","Orc","Owlfolk","Plasmoid","Reborn","Satyr","Sea Elf","Shifter","Simic Hybrid","Tabaxi","Thri-kreen","Tiefling","Tortle","Triton","Vedalken","Verdan","Warforged","Yuan-Ti Pureblood"];
+const RACE_OPTIONS = ["Dragonborn","Dwarf","Elf","Gnome","Goliath","Halfling","Human","Orc","Tiefling"];
 // SRD 5.2.1 (Creative Commons) scope, used by the Create Character wizard's
 // Home page "SRD Only" content level. Names match this file's own existing
 // spelling exactly (verified against RACE_OPTIONS/CLASS_OPTIONS/SUBCLASS_MAP/
@@ -438,18 +438,18 @@ const ITEM_CATEGORIES_NEEDING_BASE_NAME = ["Weapon", "Armor", "Shield"];
 const MONSTER_SIZES = ["Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan"];
 const MONSTER_TYPES = ["Aberration","Beast","Celestial","Construct","Dragon","Elemental","Fey","Fiend","Giant","Humanoid","Monstrosity","Ooze","Plant","Undead"];
 const MONSTER_SAVE_ABILITIES = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
-// Feat categories, matching the Rysy (Feats) library's own four subfolders
-// exactly (see buildHomebrewFeatNote/createHomebrewFeatNote) - each maps to
-// a Czech/English "**Typ:**" label pair and a subfolder under
-// settings.featLibraryFolder. Keyed here by the plain English category name
-// getAllFeatNotes already derives from a note's own "**Typ:**" line (see
-// that function's category detection), so a homebrew feat's category is
-// recognized identically to how it would be from any hand-written note.
+// Feat categories, matching the Feats library's own four subfolders exactly
+// (see buildHomebrewFeatNote/createHomebrewFeatNote) - each maps to a
+// "**Type:**" label and a subfolder under settings.featLibraryFolder. Keyed
+// here by the plain English category name getAllFeatNotes already derives
+// from a note's own "**Type:**" line (see that function's category
+// detection), so a homebrew feat's category is recognized identically to
+// how it would be from any hand-written note.
 const FEAT_CATEGORIES = {
-  General: { folder: "Obecné rysy (General Feats)", labelCz: "Obecný rys", labelEn: "General Feat" },
-  "Fighting Style": { folder: "Bojové rysy (Fighting Style Feats)", labelCz: "Rys bojového stylu", labelEn: "Fighting Style Feat" },
-  "Epic Boon": { folder: "Epické dary (Epic Boons)", labelCz: "Epický dar", labelEn: "Epic Boon" },
-  Origin: { folder: "Počáteční rysy (Origin Feats)", labelCz: "Rys z počátku", labelEn: "Origin Feat" },
+  General: { folder: "General Feats", labelEn: "General Feat" },
+  "Fighting Style": { folder: "Fighting Style Feats", labelEn: "Fighting Style Feat" },
+  "Epic Boon": { folder: "Epic Boons", labelEn: "Epic Boon" },
+  Origin: { folder: "Origin Feats", labelEn: "Origin Feat" },
 };
 // Turns every optional `mechanic` object attached to a homebrew subclass
 // feature / race trait / standalone feature (see the Homebrew Content
@@ -886,7 +886,7 @@ function getHomebrewSubclassLevelFeatures(className, subclassName) {
 // Where the ribbon "New Character" button looks for a body template to
 // clone, and where new character notes are created if that file can't be
 // found.
-const REFERENCE_TEMPLATE_PATH = "Kompendium/character-sheet-template.md";
+const REFERENCE_TEMPLATE_PATH = "Compendium/character-sheet-template.md";
 
 // The line that marks the boundary between the "mechanical" part of a
 // character note (all the tracker/tab code blocks - never user-editable
@@ -901,7 +901,7 @@ const MECHANICAL_BODY_END_MARKER = "\n# Backstory";
 // user-editable list of extra headers (and their starting text) appended
 // to the bottom of every newly-created character note.
 const DEFAULT_SETTINGS = {
-  newCharacterFolder: "Kompendium",
+  newCharacterFolder: "Compendium",
   // Where Homebrew Content > Items' "+ Create Homebrew Item Note" wizard
   // creates new item notes (see openHomebrewItemWizard/
   // createHomebrewItemNote) - a real vault note per item, not plugin
@@ -973,7 +973,7 @@ const DEFAULT_SETTINGS = {
   // metadata cache (which every tracker relies on to read frontmatter)
   // doesn't index files inside .obsidian/, so companion notes kept there
   // would silently stop working.
-  dataFolder: "Kompendium/Character Sheet Data",
+  dataFolder: "Compendium/Character Sheet Data",
   // Icon assigned (via the "Iconize" / obsidian-icon-folder community
   // plugin, if installed) to every newly-created character note. Must be
   // an icon ID that plugin already knows about, e.g. one of its Font
@@ -1000,17 +1000,7 @@ const DEFAULT_SETTINGS = {
   // stay short on a phone can turn it off. Existing homebrew content keeps
   // working everywhere either way - this only hides the wizards themselves.
   mobileHomebrewCreationEnabled: true,
-  customSections: [
-    { heading: "Backstory", content: "Write the character's backstory here." },
-    {
-      heading: "DnD Beyond",
-      content:
-        '<iframe src="" allow="fullscreen" allowfullscreen="" style="height: 100%; width: 100%; aspect-ratio: 1 / 1;"></iframe>',
-    },
-    { heading: "Life Events", content: "- " },
-    { heading: "Cíle", content: "- " },
-    { heading: "Plány DM", content: "- " },
-  ],
+  customSections: [],
   // Homebrew content added in Settings > D&D 2024 Character Sheet >
   // Homebrew Content, via a popup wizard for each of the 4 kinds below
   // (see openHomebrewClassWizard/openHomebrewSubclassWizard/
@@ -1069,24 +1059,6 @@ const SUBCLASS_FEATURE_DESC = "Determined by your subclass choice - check your s
 const sub = (label) => f(label ? `Subclass Feature (${label})` : "Subclass Feature", SUBCLASS_FEATURE_DESC);
 
 const CLASS_LEVEL_FEATURES = {
-  Artificer: {
-    1: [
-      f("Magical Tinkering", "You can invest 10 minutes to magically tinker with one Tiny nonmagical object nearby, giving it a minor property (a light, a sound, a sensory message, or a repeating clock) until you use this feature again."),
-      f("Spellcasting", "You gain the ability to cast artificer spells using Intelligence, and you can use tools as spellcasting focuses."),
-    ],
-    2: [f("Infuse Item", "You learn to imbue mundane items with magical infusions, turning them into magic items for as long as you maintain them - the number of infusions known and active grows as you level.")],
-    3: [
-      sub("Artificer Specialist"),
-      f("The Right Tool for the Job", "With Tinker's Tools, you can magically create one set of artisan's tools in your hand as a bonus action, usable until you create a different set this way."),
-    ],
-    6: [f("Tool Expertise", "Your proficiency bonus is doubled for any ability check you make that uses your proficiency with a tool.")],
-    7: [f("Flash of Genius", "As a reaction, when you or a creature within 30 feet makes an ability check or saving throw, you can add your Intelligence modifier to the roll.")],
-    10: [f("Magic Item Adept", "You can attune to up to 4 magic items at once, and can craft uncommon magic items in a quarter of the normal time and gold cost.")],
-    11: [f("Spell-Storing Item", "During a Long Rest, you can store a 1st- or 2nd-level spell in an object, which another creature can then use.")],
-    14: [f("Magic Item Savant", "You can attune to up to 5 magic items at once, and can attune to and use magic items even if they normally have class, race, or level requirements you don't meet.")],
-    18: [f("Magic Item Master", "You can attune to up to 6 magic items at once.")],
-    20: [f("Soul of Artifice", "You gain a +1 bonus to all saving throws for each magic item you're attuned to, and can sacrifice an attuned item as a reaction to avoid dropping to 0 HP, once per Long Rest.")],
-  },
   Barbarian: {
     1: [
       f("Rage", "As a bonus action, you enter a rage lasting up to a minute that gives you resistance to bludgeoning, piercing, and slashing damage, a bonus to melee damage with Strength, and advantage on Strength checks and saves."),
@@ -1913,124 +1885,17 @@ function openQuickAddFeatureModal(onDone) {
 // exact RACE_OPTIONS spelling; consumed by the Create Character wizard's
 // Features page (collectRaceTraits) and shown on the Overview tab.
 const RACE_TRAITS = {
-  Aarakocra: [
-    f("Talons", "Your unarmed strikes with your talons deal 1d4 slashing damage."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-  ],
-  Aasimar: [
-    f("Celestial Resistance", "You have resistance to necrotic damage and radiant damage."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Healing Hands", "As an action, touch a creature to heal it for HP equal to your level. Usable a number of times equal to your Proficiency Bonus per Long Rest."),
-    f("Light Bearer", "You know the Light cantrip; Charisma is your spellcasting ability for it."),
-    f("Celestial Revelation", "At level 3+, choose one celestial transformation you can call on once per Long Rest (see your book for the full benefits of your choice)."),
-  ],
-  "Astral Elf": [
-    f("Astral Elf Weapon Training", "You have proficiency with the longsword, shortsword, shortbow, and longbow."),
-    f("Astral Fire", "You know the Light cantrip. At level 3+ you can also cast Guiding Bolt, and at level 5+ Enlarge/Reduce (targeting only yourself), each once per Long Rest; Intelligence, Wisdom, or Charisma is your spellcasting ability (your choice)."),
-    f("Astral Trance", "You don't need to sleep and can't be forced to sleep by magic. Instead you meditate for 4 hours a day to gain the same benefit as 8 hours of sleep."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition, and magic can't put you to sleep."),
-  ],
-  Autognome: [
-    f("Autognome Resilience", "You are immune to disease, and immune to poison damage and the poisoned condition."),
-    f("Built for Success", "Choose one skill. When you make a check with that skill, you can treat a d20 roll of 7 or lower on the check as an 8."),
-    f("Component Housing", "Your body has built-in slots for small cosmetic or utility components (see your book for the full list of options)."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Efficient", "You don't need to eat, drink, breathe, or sleep. Instead you enter a dormant, motionless state for 4 hours a day to gain the same benefit as 8 hours of sleep."),
-    f("Immutable Form", "You are immune to any effect that would alter your form against your will."),
-  ],
-  Bugbear: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition."),
-    f("Long-Limbed", "Your reach for melee attacks made on your turn is 5 feet longer than normal."),
-    f("Powerful Build", "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."),
-    f("Sneaky", "You are proficient in the Stealth skill, and you can take the Hide action even when only lightly obscured."),
-  ],
-  Centaur: [
-    f("Charge", "If you move at least 10 feet straight toward a target and then hit it with a melee attack using your hooves on the same turn, you deal an extra 1d6 damage."),
-    f("Hooves", "Your unarmed strikes with your hooves deal 1d4 bludgeoning damage."),
-    f("Equine Build", "You count as one size larger when determining carrying capacity, and you have advantage on saves to avoid being knocked prone while you have all four hooves on the ground."),
-    f("Survivor", "You regain additional hit points when you spend Hit Dice, and regain extra hit points when you finish a Short Rest (see your book for the exact amount)."),
-  ],
-  Changeling: [
-    f("Changeling Instincts", "You have proficiency in two skills of your choice from the standard skill list."),
-    f("Shapechanger", "As a bonus action, magically alter your appearance - height, weight, facial features, voice, and coloration - to resemble another humanoid, or return to your true form."),
-  ],
-  "Deep Gnome": [
-    f("Darkvision", "You can see in dim light within 120 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Gnomish Cunning", "You have advantage on Intelligence, Wisdom, and Charisma saving throws."),
-    f("Stone Camouflage", "You have advantage on Dexterity (Stealth) checks made to hide in rocky terrain."),
-    f("Svirfneblin Magic", "You always have Nondetection active on yourself. At level 3+ you can also cast Blindness/Deafness, and at level 5+ Blur, each once per Long Rest; Intelligence is your spellcasting ability."),
-  ],
-  // Updated 2026-09-21 to match Astarion's Book of Hungers' own Dhampir
-  // writeup (this book's dedicated species entry), replacing an older
-  // Van Richten's Guide to Ravenloft-style version - see the entry in
-  // vault-map.md for the diff and sourcing caveats. Notably this version
-  // DOES need to breathe (no "don't need to breathe" clause) and renames
-  // Deathless Nature to the narrower Trace of Undeath (Necrotic resistance
-  // only). Size is a player choice (Small or Medium) not modeled here since
-  // no other RACE_TRAITS entry tracks Size either.
-  Dhampir: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Trace of Undeath", "You have resistance to necrotic damage."),
-    f("Spider Climb", "You have a Climbing speed equal to your Walking speed. Starting at character level 3, you can move up, down, and across vertical surfaces and along ceilings while leaving your hands free."),
-    f("Vampiric Bite", "Your fangs count as an Unarmed Strike. If you hit with them, you can deal 1d4 + your Constitution modifier piercing damage instead of the normal bludgeoning damage, and against a creature that isn't a Construct or Undead you choose one: Drain (regain hit points equal to the damage dealt) or Strengthen (gain a bonus equal to the damage dealt to your next ability check or attack roll within the next minute). Usable a number of times equal to your Proficiency Bonus per Long Rest."),
-  ],
   Dragonborn: [
     f("Draconic Ancestry", "Choose a dragon type; it sets the damage type of your Breath Weapon and the type you have resistance to (see your book)."),
     f("Breath Weapon", "As an action, exhale destructive energy in a 15-foot cone or 30-foot line (your choice fixed by your ancestry); each creature in the area makes a save or takes damage. Usable a number of times equal to your Proficiency Bonus per Long Rest."),
     f("Damage Resistance", "You have resistance to the damage type associated with your Draconic Ancestry."),
     f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
   ],
-  Duergar: [
-    f("Darkvision", "You can see in dim light within 120 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Duergar Magic", "At level 3+ you can cast Enlarge/Reduce (targeting only yourself), and at level 5+ Invisibility (targeting only yourself), each once per Long Rest; Intelligence is your spellcasting ability."),
-    f("Duergar Resilience", "You have advantage on saving throws against illusions and against being charmed or paralyzed, and you have resistance to poison damage."),
-    f("Sunlight Sickness", "You have disadvantage on attack rolls and on Wisdom (Perception) checks that rely on sight when you or the target is in direct sunlight."),
-  ],
   Dwarf: [
     f("Darkvision", "You can see in dim light within 120 feet as if it were bright light, and in darkness as if it were dim light."),
     f("Dwarven Resilience", "You have resistance to poison damage, and advantage on saving throws you make to avoid or end the poisoned condition."),
     f("Dwarven Toughness", "Your hit point maximum increases by 1, and increases by 1 again whenever you gain a level."),
     f("Stonecunning", "As a bonus action, gain Tremorsense out to 60 feet for 10 minutes, a limited number of times, regaining expended uses on a Long Rest; you're also treated as proficient in History checks about stonework."),
-  ],
-  // ---- Hill Dwarf / Mountain Dwarf (2026-09-23) - the 2014 PHB's two
-  // Dwarf subraces. The unified 2024 "Dwarf" entry just above has no
-  // subrace choice at all (unlike Elf's own "Elven Lineage" trait), which
-  // is correct for a from-scratch 2024-rules character but left no way to
-  // pick a legacy Dwarf built under the 2014 rules (a D&D Beyond sheet
-  // using 2014 rules shows "Hill Dwarf"/"Mountain Dwarf" as their own
-  // Race, not "Dwarf"). Modeled as their own top-level species here,
-  // matching how this file already treats other once-subraces-now-
-  // separately-playable species (Duergar, Deep Gnome, Sea Elf, Eladrin,
-  // Astral Elf) rather than adding a subrace-picker mechanism nothing else
-  // in this file has. 60 ft. Darkvision and 25 ft. Speed (not the 2024
-  // Dwarf's 120 ft./30 ft.) per the 2014 PHB, plus the 2014 Dwarf's own
-  // Dwarven Combat Training/Tool Proficiency traits the 2024 version
-  // dropped, one on top of the shared base per subrace (Toughness for
-  // Hill, Armor Training for Mountain) - same "best-effort draft" caveat
-  // as this table's other entries.
-  "Hill Dwarf": [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Dwarven Resilience", "You have advantage on saving throws you make to avoid or end the poisoned condition, and you have resistance to poison damage."),
-    f("Dwarven Combat Training", "You have proficiency with the battleaxe, handaxe, light hammer, and warhammer."),
-    f("Tool Proficiency", "You gain proficiency with one of the following: smith's tools, brewer's supplies, or mason's tools (your choice)."),
-    f("Stonecunning", "Whenever you make an Intelligence (History) check related to the origin of stonework, you are considered proficient and add double your Proficiency Bonus."),
-    f("Dwarven Toughness", "Your hit point maximum increases by 1, and increases by 1 again whenever you gain a level."),
-  ],
-  "Mountain Dwarf": [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Dwarven Resilience", "You have advantage on saving throws you make to avoid or end the poisoned condition, and you have resistance to poison damage."),
-    f("Dwarven Combat Training", "You have proficiency with the battleaxe, handaxe, light hammer, and warhammer."),
-    f("Tool Proficiency", "You gain proficiency with one of the following: smith's tools, brewer's supplies, or mason's tools (your choice)."),
-    f("Stonecunning", "Whenever you make an Intelligence (History) check related to the origin of stonework, you are considered proficient and add double your Proficiency Bonus."),
-    f("Dwarven Armor Training", "You have proficiency with light and medium armor."),
-  ],
-  Eladrin: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition, and magic can't put you to sleep."),
-    f("Fey Step", "As a bonus action, teleport up to 30 feet to an unoccupied space you can see. You can use this trait a number of times equal to your Proficiency Bonus, regaining all expended uses after a Long Rest (and regaining one use whenever you roll Initiative with no uses left)."),
-    f("Fey Step Season", "Choose a season (Autumn, Winter, Spring, or Summer) - whenever you use Fey Step, you can invoke your season for an additional minor effect on a creature within 5 feet of your destination (see your book)."),
   ],
   Elf: [
     f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
@@ -2039,55 +1904,15 @@ const RACE_TRAITS = {
     f("Trance", "You don't need to sleep, and can't be forced to. Instead you meditate for 4 hours a day to gain the same benefit as 8 hours of sleep."),
     f("Elven Lineage", "Choose an elven lineage (Drow, High Elf, or Wood Elf) - it grants you a cantrip and a minor extra benefit (see your book)."),
   ],
-  Fairy: [
-    f("Fairy Magic", "You know the Druidcraft cantrip; at higher levels you can cast Faerie Fire and Enlarge/Reduce once each per Long Rest."),
-    f("Flight", "You have a Flying speed equal to your Walking speed while you aren't wearing heavy armor."),
-  ],
-  Firbolg: [
-    f("Firbolg Magic", "You can cast Detect Magic and Disguise Self (altering only your own appearance, to look like a normal-sized Medium humanoid) a number of times per Long Rest."),
-    f("Hidden Step", "As a bonus action, turn invisible until the start of your next turn or until you attack, deal damage, or force a save; usable a limited number of times per Long Rest."),
-    f("Powerful Build", "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."),
-  ],
-  Genasi: [
-    f("Elemental Legacy", "Choose an elemental legacy (Air, Earth, Fire, or Water) - it grants a cantrip, a damage resistance, and further benefits at higher levels (see your book)."),
-  ],
-  Giff: [
-    f("Firearms Proficiency", "You have proficiency with all firearms (if your table doesn't use firearms, you instead gain proficiency with two martial weapons of your choice)."),
-    f("Hippo-Like Build", "You have advantage on Strength checks and Strength saving throws, and you can hold your breath for up to 1 hour."),
-    f("Powerful Build", "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."),
-  ],
-  Githyanki: [
-    f("Decadent Mastery", "You gain proficiency in one skill or tool of your choice, and you can speak, read, and write one extra language of your choice."),
-    f("Githyanki Psionics", "You know the Mage Hand cantrip (the hand is invisible). At level 3+ you can also cast Jump on yourself, and at level 5+ Misty Step, each once per Long Rest; Intelligence is your spellcasting ability."),
-    f("Martial Prodigy", "You have proficiency with light and medium armor, and with the shortsword and longsword."),
-  ],
-  Githzerai: [
-    f("Githzerai Psionics", "You know the Mage Hand cantrip (the hand is invisible). At level 3+ you can also cast Shield, and at level 5+ Detect Thoughts, each once per Long Rest; Wisdom is your spellcasting ability."),
-    f("Mental Discipline", "You have advantage on saving throws you make to avoid or end the charmed or frightened condition."),
-  ],
   Gnome: [
     f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
     f("Gnomish Cunning", "You have advantage on Intelligence, Wisdom, and Charisma saving throws."),
     f("Gnomish Lineage", "Choose a gnomish lineage (Forest Gnome or Rock Gnome) - it grants a cantrip and a further minor benefit (see your book)."),
   ],
-  Goblin: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fury of the Small", "When you damage a creature larger than you with an attack or spell, you can deal extra damage equal to your level once per Short or Long Rest."),
-    f("Nimble Escape", "You can take the Disengage or Hide action as a bonus action on each of your turns."),
-  ],
   Goliath: [
     f("Large Form", "Starting at level 5, you can grow to Large size as a bonus action for 10 minutes, a limited number of times per Long Rest."),
     f("Powerful Build", "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."),
     f("Giant Ancestry", "Choose one giant-granted benefit (Cloud's Jaunt, Fire's Burn, Frost's Chill, Hill's Tumble, Stone's Endurance, or Storm's Thunder) - usable a number of times equal to your Proficiency Bonus per Long Rest (see your book)."),
-  ],
-  Grung: [
-    f("Amphibious", "You can breathe air and water."),
-    f("Poison Skin/Poisonous Secretion", "You secrete a paralytic poison; creatures that touch you or hit you with an unarmed strike/natural weapon while within 5 feet must save or be poisoned."),
-    f("Standing Leap", "Your long jump is up to 25 feet and your high jump up to 15 feet, with or without a running start."),
-  ],
-  Hadozee: [
-    f("Dexterous Feet", "You can use your feet for simple tasks that would normally require a free hand, such as opening an unlocked door or manipulating an object, though not for attacks."),
-    f("Glide", "When you fall, you can spread your arms and legs and use the folds of skin between them to glide; you take no falling damage and you can move up to half your fall distance horizontally."),
   ],
   Halfling: [
     f("Brave", "You have advantage on saving throws you make to avoid or end the frightened condition."),
@@ -2095,177 +1920,20 @@ const RACE_TRAITS = {
     f("Luck", "When you roll a 1 on the d20 of an attack roll, ability check, or saving throw, you can reroll the die and must use the new roll."),
     f("Naturally Stealthy", "You can take the Hide action even when you are obscured only by a creature that is at least one size larger than you."),
   ],
-  "Half-Elf": [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition."),
-    f("Skill Versatility", "You gain proficiency in two skills of your choice."),
-  ],
-  "Half-Orc": [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Adrenaline Rush", "As a bonus action, gain temporary hit points and extra movement, usable a number of times equal to your Proficiency Bonus per Short or Long Rest."),
-    f("Relentless Endurance", "When reduced to 0 hit points but not killed outright, you can drop to 1 hit point instead - once per Long Rest."),
-  ],
-  Harengon: [
-    f("Hare-Trigger", "You can add your Proficiency Bonus to your Initiative rolls."),
-    f("Leporine Senses", "You have proficiency in the Perception skill."),
-    f("Lucky Footwork", "When you fail a Dexterity saving throw, you can roll a d4 and add it to the save, potentially turning failure into success; usable a number of times equal to your Proficiency Bonus per Long Rest."),
-    f("Rabbit Hop", "As a bonus action, jump a distance (up to your Proficiency Bonus x 5 feet) without provoking opportunity attacks, usable a number of times equal to your Proficiency Bonus per Long Rest."),
-  ],
-  Hexblood: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Hex Magic", "You know the Disguise Self spell and can cast it without a spell slot. At level 3+ you can also cast Hex once per Long Rest without expending a spell slot; Intelligence, Wisdom, or Charisma is your spellcasting ability (your choice)."),
-    f("Hexblood Resilience", "You have advantage on saving throws against being poisoned, and resistance to poison damage."),
-    f("Sense the Unseen", "Whenever you cast Disguise Self using your Hex Magic trait, you can also sense the general direction of, and roughly how far away, any invisible creatures are within 30 feet of you, as long as you aren't blinded or deafened."),
-  ],
-  Hobgoblin: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fortune from the Many", "When you or a creature within 30 feet that can see you fails an ability check, attack roll, or saving throw, you can grant a reroll with a bonus, usable a limited number of times per Long Rest."),
-    f("Saving Face", "If you miss with an attack roll or fail an ability check or saving throw, gain temporary hit points equal to your level, once per Short or Long Rest, shareable with nearby allies."),
-  ],
   Human: [
     f("Resourceful", "You gain Heroic Inspiration whenever you finish a Long Rest."),
     f("Skillful", "You gain proficiency in one skill of your choice."),
     f("Versatile", "You gain an Origin feat of your choice."),
-  ],
-  Kalashtar: [
-    f("Mental Discipline", "You have advantage on saving throws you make to avoid or end the charmed or frightened condition."),
-    f("Mind Link", "As a bonus action, establish a telepathic bond with a creature you can see, letting you communicate telepathically for a limited time."),
-    f("Severed from Dreams", "You don't sleep and can't be put to sleep by magic; instead you meditate 4 hours a day. You're immune to the Dream spell and similar magic."),
-  ],
-  Kenku: [
-    f("Expert Forgery", "You can duplicate other creatures' handwriting and craftwork, giving advantage on checks to pass off a forgery as genuine."),
-    f("Kenku Recall", "You have advantage on checks to recall lore about settlements you have visited."),
-    f("Mimicry", "You can mimic sounds you've heard, including voices; a listener can tell it's a mimicry with a successful check."),
-  ],
-  Kobold: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Draconic Cry", "As a bonus action, let out a cry that gives you and nearby allies advantage on attack rolls against a target for a limited time, usable a limited number of times per rest."),
-    f("Pack Tactics", "You have advantage on an attack roll against a creature if at least one of your allies is within 5 feet of it and not incapacitated."),
-  ],
-  Leonin: [
-    f("Claws", "Your unarmed strikes with your claws deal 1d4 slashing damage."),
-    f("Daunting Roar", "As a bonus action, let out a roar that frightens creatures of your choice within 10 feet unless they save, usable a limited number of times per Long Rest."),
-    f("Hunter's Instincts", "You have proficiency in one of Athletics, Intimidation, Perception, or Survival."),
-  ],
-  Lizardfolk: [
-    f("Bite", "Your unarmed strikes with your bite deal 1d6 piercing damage."),
-    f("Hold Breath", "You can hold your breath for up to 15 minutes at a time."),
-    f("Hunter's Lore", "You gain proficiency with two of the following: Animal Handling, Nature, Perception, Stealth, Survival."),
-    f("Natural Armor", "While not wearing armor your AC is 13 + Dex modifier, and you can't wear armor without sacrificing this benefit."),
-  ],
-  Locathah: [
-    f("Leviathan Will", "You have advantage on saving throws you make to avoid or end the charmed or frightened condition."),
-    f("Limited Amphibiousness", "You can breathe air and water, but you must submerge yourself in water for at least 1 hour every 4 hours or start suffering exhaustion."),
-    f("Natural Armor", "While not wearing armor your AC is 12 + Dex modifier, and you can't wear armor without sacrificing this benefit."),
-    f("Sea Native", "You have a Swimming speed of 30 feet."),
-  ],
-  Loxodon: [
-    f("Loxodon Serenity", "You have advantage on saving throws against being charmed or frightened."),
-    f("Natural Armor", "While not wearing armor your AC is 12 + Con modifier, and you can't wear armor without sacrificing this benefit."),
-    f("Powerful Build", "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."),
-    f("Trunk", "You have a prehensile trunk that can lift and hold objects, drink, and smell/sense as an extra way to interact with your surroundings."),
-  ],
-  Minotaur: [
-    f("Goring Rush", "If you move at least 10 feet straight toward a target and then hit it with a gore attack on the same turn, you deal extra damage."),
-    f("Hammering Horns", "Once per turn when you hit with a melee attack, you can push the target away and knock it prone with a horn strike, a limited number of times per Short or Long Rest."),
-    f("Horns", "Your unarmed strikes with your horns deal 1d6 piercing damage."),
-    f("Labyrinthine Recall", "You can perfectly recall any path you have traveled."),
   ],
   Orc: [
     f("Adrenaline Rush", "As a bonus action, gain temporary hit points and extra movement, usable a number of times equal to your Proficiency Bonus per Short or Long Rest."),
     f("Darkvision", "You can see in dim light within 120 feet as if it were bright light, and in darkness as if it were dim light."),
     f("Relentless Endurance", "When reduced to 0 hit points but not killed outright, you can drop to 1 hit point instead - once per Long Rest."),
   ],
-  Owlfolk: [
-    f("Darkvision", "You can see in dim light within 120 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Silent Feathers", "You have proficiency in the Stealth skill."),
-    f("Flight", "You have a Flying speed equal to your Walking speed, though you can't use it while wearing medium or heavy armor."),
-  ],
-  Plasmoid: [
-    f("Amorphous", "You can move through a space as narrow as 1 inch wide without squeezing, and you have advantage on ability checks and saving throws made to escape a grapple."),
-    f("Hold Breath", "You can hold your breath indefinitely while you aren't incapacitated."),
-    f("Natural Resilience", "You have resistance to acid damage and poison damage, and you're immune to the poisoned condition."),
-    f("Shape Self", "As a bonus action, you can change the appearance of your body - flattening to slide under a door, extending a pseudopod, or reshaping a limb to resemble a tool, granting a minor situational benefit (see your book)."),
-  ],
-  Reborn: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Deathless Nature", "You don't need to eat, drink, or breathe, and you age much more slowly. You still need to rest to gain the benefits of a Short or Long Rest."),
-    f("Envoy of the Dead", "You have advantage on Charisma checks made to interact with spirits, and you have proficiency in one of the following skills of your choice: Insight, Intimidation, or Persuasion."),
-    f("Origin", "Choose an origin (Cursed, Doomed, Faithful, Malignant, or Vigilant) - it grants a further minor benefit (see your book for the full effect of your choice)."),
-  ],
-  Satyr: [
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition, and magic can't put you to sleep."),
-    f("Magic Resistance", "You have advantage on saving throws against spells and other magical effects."),
-    f("Mirthful Leaps", "Your long and high jump distances are increased, calculated as if your Strength score were higher than it is."),
-    f("Ram", "Your unarmed strikes with your horns deal 1d4 bludgeoning damage."),
-  ],
-  "Sea Elf": [
-    f("Child of the Sea", "You have a Swimming speed of 30 feet, and you can breathe air and water."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Fey Ancestry", "You have advantage on saving throws you make to avoid or end the charmed condition, and magic can't put you to sleep."),
-    f("Friend of the Sea", "You can communicate simple ideas to any beast that has a Swimming speed, by means of sounds and gestures."),
-    f("Keen Senses", "You have proficiency in the Perception skill."),
-    f("Trance", "You don't need to sleep, and can't be forced to. Instead you meditate for 4 hours a day to gain the same benefit as 8 hours of sleep."),
-  ],
-  Shifter: [
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Shifter's Fangs and Claws", "Your unarmed strikes deal 1d6 damage (piercing or slashing, your choice) instead of the normal bludgeoning."),
-    f("Shifting", "As a bonus action, assume a bestial appearance for 1 minute, gaining temporary hit points and a benefit based on your chosen Shifting type (Beasthide, Longtooth, Swiftstride, or Wildhunt) - a limited number of times per Long Rest (see your book)."),
-  ],
-  "Simic Hybrid": [
-    f("Aquatic Adaptation", "You have a Swimming speed of 30 feet and can breathe air and water."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Animal Enhancement", "Choose one enhancement (Manta Glide, Nimble Climber, or Underwater Adaptation) that grows more useful as you level (see your book)."),
-  ],
-  Tabaxi: [
-    f("Cat's Claws", "Your unarmed strikes with your claws deal 1d4 slashing damage, and you have a Climbing speed of 20 feet."),
-    f("Cat's Talent", "You have proficiency in the Perception and Stealth skills."),
-    f("Feline Agility", "You can move at double speed for one dash-like burst on your turn, then can't do so again until you move 0 feet on a later turn."),
-  ],
-  "Thri-kreen": [
-    f("Chameleon Carapace", "As an action, change the color of your carapace to match your surroundings, giving you advantage on Stealth checks to hide as long as you remain motionless and unarmored over it."),
-    f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
-    f("Secondary Arms", "You have two Small arms in addition to your primary set. You can use the secondary arms to hold objects, open doors, and the like, but not to attack or cast spells."),
-    f("Sleepless", "You don't need to sleep and can't be forced to sleep by magic. Instead you meditate for 4 hours a day to gain the same benefit as 8 hours of sleep."),
-    f("Thri-kreen Telepathy", "You can telepathically communicate with any thri-kreen within 60 feet of you who shares a language with you."),
-  ],
   Tiefling: [
     f("Darkvision", "You can see in dim light within 60 feet as if it were bright light, and in darkness as if it were dim light."),
     f("Otherworldly Presence", "You know the Thaumaturgy cantrip; Charisma is your spellcasting ability for it."),
     f("Fiendish Legacy", "Choose a fiendish legacy (Abyssal, Chthonic, or Infernal) - it grants a damage resistance and a spell you can cast once per Long Rest (see your book)."),
-  ],
-  Tortle: [
-    f("Claws", "Your unarmed strikes with your claws deal 1d4 slashing damage."),
-    f("Hold Breath", "You can hold your breath for up to 1 hour."),
-    f("Natural Armor", "While not wearing armor your AC is 17, and you can't wear armor without sacrificing this benefit; you also can't use a shield and still gain this AC."),
-    f("Shell Defense", "As an action, withdraw into your shell for improved AC and resistance to bludgeoning/piercing/slashing damage, but become prone and unable to act, a limited number of times per Long Rest."),
-  ],
-  Triton: [
-    f("Amphibious", "You can breathe air and water."),
-    f("Control Air and Water", "You can cast Fog Cloud, and at higher levels Gust of Wind and Wall of Water, once each per Long Rest."),
-    f("Emissary of the Sea", "You can communicate simple ideas with beasts that have a swimming speed."),
-    f("Guardians of the Depths", "You have resistance to cold damage and can see in deep, dark water as if it were dim light."),
-  ],
-  Vedalken: [
-    f("Tireless Precision", "You gain proficiency in one of Investigation, Medicine, Perception, or Survival, and can add half your proficiency bonus to checks with that skill even without proficiency, twice per Short or Long Rest."),
-    f("Vedalken Dispassion", "You have advantage on saving throws you make to avoid or end being charmed or frightened."),
-    f("Vedalken Manipulation", "You have advantage on checks made to use tools or vehicles with which you're proficient."),
-  ],
-  Verdan: [
-    f("Limited Telepathy", "You can telepathically speak simple messages to creatures within 30 feet."),
-    f("Persuasive", "You have proficiency in the Persuasion skill."),
-    f("Undead Fortitude", "When reduced to 0 hit points but not killed outright, you can attempt to drop to 1 hit point instead."),
-  ],
-  Warforged: [
-    f("Constructed Resilience", "You have advantage on saving throws against being poisoned, resistance to poison damage, and don't need to eat, drink, or breathe."),
-    f("Integrated Protection", "You gain a bonus to AC while not wearing armor, and can integrate armor into your body over a Long Rest."),
-    f("Sentry's Rest", "When you take a Long Rest you remain semi-conscious, and only need 6 hours instead of 8."),
-    f("Specialized Design", "You gain proficiency in one skill and one tool of your choice."),
-  ],
-  "Yuan-Ti Pureblood": [
-    f("Innate Spellcasting", "You know the Poison Spray cantrip; at higher levels you can cast Animal Friendship (snakes only) and Suggestion once each per Long Rest."),
-    f("Magic Resistance", "You have advantage on saving throws against spells and other magical effects."),
-    f("Poison Immunity", "You are immune to poison damage and the poisoned condition."),
   ],
 };
 
@@ -2277,65 +1945,15 @@ const RACE_TRAITS = {
 // anywhere), so treat these as a quick plain-language orientation rather
 // than official text - accurate in spirit, not a citation.
 const RACE_DESCRIPTIONS = {
-  Aarakocra: "A birdlike people with feathered wings, native to the wild Elemental Plane of Air and gifted with true flight and a sharp eye for distances.",
-  Aasimar: "Mortals touched by celestial heritage, marked by a divine spark that can manifest as radiant or necrotic wings and light when their inner nature awakens.",
-  "Astral Elf": "Elves born or raised on the Astral Plane, calm and contemplative travelers who can blink briefly out of reality and see truth through illusions.",
-  Autognome: "Small self-aware constructs built by an eccentric gnome inventor, sturdy little automatons immune to poison and disease and able to repair themselves.",
-  Bugbear: "Big, hairy goblinoids with unnervingly long limbs, naturally stealthy despite their size and capable of surprising reach and force in a single strike.",
-  Centaur: "Folk with the lower body of a horse and the upper body of a humanoid, fast overland travelers who fight as comfortably with hooves as with weapons.",
-  Changeling: "Shapeshifters descended from fey trickster stock, able to alter their face and voice at will and instinctively read others' emotions.",
-  "Deep Gnome": "A reclusive gnome subrace adapted to the Underdark, keen-eyed in darkness and skilled at blending into stone to vanish from sight.",
-  Dhampir: "Half-vampire wanderers caught between life and undeath, marked by a vampiric bite, a climbing gift, and a partial resistance to the grave's cold touch.",
   Dragonborn: "Proud, draconic humanoids descended from dragons, each lineage marked by a distinct elemental breath weapon and a natural resistance to that same damage type.",
-  Duergar: "Grim gray dwarves of the Underdark, hardened by generations of enslavement to illithids, able to turn invisible and grow to giant size in short bursts.",
   Dwarf: "Stout, hardy folk of stone and steel, at home underground, with keen darkvision and a body naturally resistant to poison.",
-  "Hill Dwarf": "The 2014 PHB's Dwarf subrace prized for keen intuition and remarkable resilience - stout even by dwarven standards, with extra hit points to prove it.",
-  "Mountain Dwarf": "The 2014 PHB's Dwarf subrace built for battle - strong and hardy, trained from birth in the use of armor.",
-  Eladrin: "Fey elves of the Feywild whose mood shifts with the seasons, able to teleport in a burst of seasonal magic that echoes their current emotional state.",
   Elf: "Graceful, long-lived people with keen senses and a trance-like rest instead of sleep, naturally gifted with darkvision and heightened perception.",
-  Fairy: "Tiny fey with butterfly-like wings, natural fliers who can turn invisible and infuse their tiny weapons with a touch of magical mischief.",
-  Firbolg: "Gentle giant-kin who prefer solitude in deep forests, able to speak with plants and beasts and to vanish briefly from sight when they wish to be unseen.",
-  Genasi: "Descendants of mortals and elemental spirits, each of the four lineages carrying a fragment of Air, Earth, Fire, or Water within their blood and body.",
-  Giff: "Hippopotamus-headed spacefaring folk famed across the planes for their discipline, love of firearms, and imposing physical strength.",
-  Githyanki: "Warlike raiders of the Astral Plane, trained from birth in blade and battle, capable of brief telekinetic bursts of psionic power.",
-  Githzerai: "Disciplined monks of Limbo who shape that plane's chaos through sheer will, gifted with innate psionic defenses and a moment's foresight.",
   Gnome: "Small, endlessly curious tinkerers and spellcasters, naturally resistant to being charmed or having their minds read.",
-  Goblin: "Small, quick, and resourceful folk who slip out of danger easily and can turn a foe's larger size into an opening for a nimble escape.",
   Goliath: "Towering mountain-folk raised on brutal peaks, whose bodies can shrug off the worst of a blow through sheer stone-like endurance.",
-  Grung: "Small, toxic-skinned frog-folk who breathe both air and water, able to poison anyone unwise enough to touch their skin.",
-  Hadozee: "Simian seafarers with gliding membranes between arm and body, able to catch the wind and soften long falls with a glide.",
   Halfling: "Small, nimble, and famously lucky folk, able to slip past danger and reroll a bad stroke of fortune when it truly counts.",
-  "Half-Elf": "Children of human and elven parentage, inheriting a broad social versatility alongside a touch of elven resilience.",
-  "Half-Orc": "Descendants of human and orcish lineage, known for relentless endurance that lets them fight on past wounds that would fell others.",
-  Harengon: "Rabbitfolk with powerful legs and an uncanny knack for good fortune, able to leap great distances and shrug off ill luck.",
-  Hexblood: "Mortals remade by a fey hag's magic, left with an unsettling resilience, a touch of second sight, and the ability to speak with any creature that understands a language.",
-  Hobgoblin: "Disciplined, militaristic goblinoids who fight best in formation, drawing strength and precision from allies fighting at their side.",
   Human: "The most adaptable and populous people of the multiverse, versatile generalists whose greatest strength is a knack for excelling wherever they focus.",
-  Kalashtar: "A union of humanoid and benevolent spirit sharing one body and mind, gifted with innate telepathy and resistance to mental influence.",
-  Kenku: "Cursed, flightless bird-folk who lost their own voice and now perfectly mimic any sound they've heard, masters of forgery and mimicry.",
-  Kobold: "Small, cunning reptilian tricksters who fight best in numbers, using pack tactics to turn an ally's presence into a decisive advantage.",
-  Leonin: "Proud, lion-like folk of the plains, whose thick mane and hide can shrug off a wound and who can rally allies with a fierce roar.",
-  Lizardfolk: "Cold-blooded, pragmatic reptilian survivors equally at home on land or in water, with tough natural hide and a bite to match.",
-  Locathah: "Fish-like aquatic folk able to breathe both air and water, powerful swimmers whose scaled bodies resist the sea's harshest elements.",
-  Loxodon: "Gentle, elephant-headed giants of unshakeable memory and calm, whose thick hide and steady nature make them hard to frighten or wound.",
-  Minotaur: "Bull-headed wanderers with an unerring sense of direction, able to charge down a foe with bone-crushing force.",
   Orc: "Powerful, tireless warriors whose relentless vitality lets them push through exhaustion and keep fighting long after others would fall.",
-  Owlfolk: "Owl-headed folk of silent wings and night-sharp eyes, able to glide on the air and see clearly in total darkness.",
-  Plasmoid: "Sentient oozes shaped like humanoids, able to reshape their gelatinous bodies, squeeze through tiny gaps, and shrug off a blow by simply absorbing it.",
-  Reborn: "The dead returned to unlife with mind and will intact, no longer needing to breathe or eat, and hardened against death's own cold touch.",
-  Satyr: "Fun-loving fey with goat-like legs and horns, resistant to charm and magic and always ready to leap out of a scuffle.",
-  "Sea Elf": "Elves who long ago made their home beneath the waves, swimming as easily as walking and breathing water as naturally as air.",
-  Shifter: "Distant lycanthrope-blooded folk who can briefly call on their beast nature, gaining heightened senses and resilience for a short, fierce burst.",
-  "Simic Hybrid": "Folk reshaped by biomancers with animal traits grafted onto a humanoid frame, gaining a beast's gift such as gills, claws, or a natural carapace.",
-  Tabaxi: "Curious, cat-like wanderers with a hunter's reflexes, quick paws, and an insatiable drive to see what lies over the next horizon.",
-  "Thri-kreen": "Insectoid folk of the desert wastes, with four arms, a chitinous carapace, and no need for sleep, resting instead in a brief meditative trance.",
   Tiefling: "Mortals marked by an infernal bloodline, carrying horns, a tail, and a spark of fiendish magic passed down through their ancestry.",
-  Tortle: "Turtle-like folk with a natural shell they can withdraw into, unhurried wanderers who are almost impossible to knock off their feet.",
-  Triton: "Guardians of the ocean's depths, able to breathe water and air alike and to call up a brief surge of controlled sea and storm.",
-  Vedalken: "Methodical, blue-skinned humanoids of unshakeable focus, whose deliberate minds resist being tricked, charmed, or caught off guard.",
-  Verdan: "Small folk born of goblinoid and human strains bound by a strange telepathic curse, tough enough to shrug off poison and impossible to properly silence.",
-  Warforged: "Living constructs built as soldiers, needing neither sleep nor food and armored by their own integrated, living plating.",
-  "Yuan-Ti Pureblood": "Serpentfolk descended from ancient snake-cultists, nearly human in shape but carrying a serpent's resistance to poison and immunity to charm magic.",
 };
 function getRaceDescription(raceName) {
   if (RACE_DESCRIPTIONS[raceName]) return RACE_DESCRIPTIONS[raceName];
@@ -3165,265 +2783,39 @@ async function applyFeatureSideEffects(app, mainFile, features, levelOverride) {
 // placeholder otherwise, so a class/subclass/level not covered here still
 // works exactly as before.
 const SUBCLASS_LEVEL_FEATURES = {
-  "Artificer": {
-    "Alchemist": {
-      3: [f("Alchemist Spells & Experimental Elixir", "You always have certain healing/support spells prepared, and can brew a random beneficial elixir as a bonus action.")],
-    },
-    "Armorer": {
-      3: [f("Arcane Armor", "Your armor becomes Arcane Armor with a Guardian or Infiltrator arm, giving you a new attack option and no Strength/Dexterity requirement.")],
-    },
-    "Artillerist": {
-      3: [f("Eldritch Cannon", "As a bonus action, summon a Tiny magic cannon (Flamethrower, Force Ballista, or Protector) that fights or shields for you.")],
-    },
-    "Battle Smith": {
-      3: [f("Battle Ready & Steel Defender", "Add your Intelligence modifier to melee attacks with magic weapons, and build a Steel Defender companion that fights and protects you.")],
-    },
-  },
   "Barbarian": {
-    "Ancestral Guardian": {
-      3: [f("Ancestral Protectors", "Spirits guard the target of your first hit each turn - other creatures attacking someone else have disadvantage and deal half damage.")],
-      6: [f("Spirit Shield", "While raging, use your reaction to reduce the damage a nearby ally takes.")],
-      10: [f("Consult the Spirits", "Cast Augury or Clairvoyance without a spell slot, once per Short or Long Rest.")],
-      14: [f("Vengeful Ancestors", "Your Spirit Shield now also deals damage back to the attacker.")],
-    },
-    "Battlerager": {
-      3: [f("Battlerager Armor", "Proficient with spiked armor, and can use a bonus action to deal extra piercing damage while grappling.")],
-      6: [f("Reckless Abandon", "Gain temporary hit points whenever you use Reckless Attack while raging.")],
-      10: [f("Battlerager Charge", "Use a bonus action to Dash while wearing spiked armor.")],
-      14: [f("Spiked Retribution", "A creature that hits you in melee while you're raging takes piercing damage back.")],
-    },
     "Berserker": {
       3: [f("Frenzy", "Make one extra melee weapon attack as part of your Rage bonus action, gaining a level of exhaustion when the rage ends.")],
       6: [f("Mindless Rage", "You can't be charmed or frightened while raging.")],
       10: [f("Intimidating Presence", "Use your action to frighten a creature you can see within 30 feet.")],
       14: [f("Retaliation", "Use your reaction to make a melee attack against a creature that damages you within 5 feet.")],
     },
-    "Storm Herald": {
-      3: [f("Storm Aura", "Choose Desert, Sea, or Tundra - gain a passive aura while raging that grows more powerful as you level.")],
-      6: [f("Storm Soul", "A permanent elemental benefit matching your chosen environment (resistance, minor healing, or better vision).")],
-      10: [f("Shielding Storm", "Your Storm Aura now also grants resistance to one damage type to allies inside it.")],
-      14: [f("Raging Storm", "Your Storm Aura gains a powerful new effect based on your chosen environment.")],
-    },
-    "Totem Warrior": {
-      3: [f("Spirit Seeker & Totem Spirit", "Ritual-cast Beast Sense or Augury, and choose a totem animal (Bear, Eagle, Wolf, and more) for a passive benefit while raging.")],
-      6: [f("Aspect of the Beast", "A permanent minor benefit themed to your totem animal, usable even outside of rage.")],
-      10: [f("Spirit Walker", "Cast Commune with Nature as a ritual.")],
-      14: [f("Totemic Attunement", "A powerful combat benefit themed to your totem animal, active while you're raging.")],
-    },
-    "Zealot": {
-      3: [f("Divine Fury & Warrior of the Gods", "Extra Radiant or Necrotic damage on your first hit each turn while raging, and you're unusually easy to bring back from death.")],
-      6: [f("Fanatical Focus", "Once per rage, reroll a failed saving throw.")],
-      10: [f("Zealous Presence", "As a bonus action, grant nearby allies advantage on attack rolls and saving throws for one turn, once per Long Rest.")],
-      14: [f("Rage Beyond Death", "You can't drop below 1 hit point while raging.")],
-    },
   },
   "Bard": {
-    "College of Creation": {
-      3: [f("Mote of Potential & Performance of Creation", "Spend Bardic Inspiration to set up a bigger bonus for later, and conjure a temporary Tiny nonmagical object out of sound and light.")],
-      6: [f("Animating Performance", "Animate an object into a small dancing or fighting companion for the encounter.")],
-      10: [f("Enduring Creations", "Your Performance of Creation objects and Animating Performance companions hold together longer and can be bigger.")],
-      14: [f("Creative Crescendo", "Your Performance of Creation can produce multiple objects at once, or briefly duplicate a summoned creature.")],
-    },
-    "College of Eloquence": {
-      3: [f("Silver Tongue & Unsettling Words", "Treat a Persuasion or Deception roll of 9 or lower as a 10, and spend Bardic Inspiration to weaken a foe's next saving throw.")],
-      6: [f("Unfailing Inspiration & Universal Speech", "A spent Bardic Inspiration die isn't used up on a failed roll, and you can cast Tongues at will without a spell slot.")],
-      10: [f("Unsettling Words (Improved)", "Your persuasive presence keeps growing, further unsettling those who oppose you in an argument or a fight.")],
-      14: [f("Infectious Inspiration", "When a creature succeeds using your Bardic Inspiration die, you can give another die away for free.")],
-    },
-    "College of Glamour": {
-      3: [f("Mantle of Inspiration & Enthralling Performance", "Bardic Inspiration also grants temporary hit points and a free reaction move, and a performance can briefly charm a crowd.")],
-      6: [f("Mantle of Majesty", "Cast Command at will as a bonus action for up to one minute, without a spell slot.")],
-      10: [f("Fey Grace", "Your fey glamour grows harder to resist and easier to maintain.")],
-      14: [f("Unbreakable Majesty", "As a bonus action, become strikingly beautiful, forcing anyone who wants to attack you to save first.")],
-    },
     "College of Lore": {
       3: [f("Cutting Words", "Use a Bardic Inspiration die as a reaction to weaken a nearby enemy's attack, ability check, or damage roll.")],
       6: [f("Additional Magical Secrets", "Learn two spells of your choice from any class's spell list.")],
       10: [f("Wide Learning", "Your accumulated lore keeps expanding your repertoire of secrets and tricks.")],
       14: [f("Peerless Skill", "Add a Bardic Inspiration die to your own ability check when you'd otherwise fail it.")],
     },
-    // Added 2026-09-21 from Forgotten Realms: Heroes of Faerûn - see
-    // vault-map.md for sourcing caveats (secondary-source reconstruction,
-    // dnd2024.wikidot.com was unreachable this session).
-    "College of the Moon": {
-      3: [
-        f("Moonshae Folktales", "As a Magic action, you draw on primal folktales to empower yourself with one of several beneficial effects until you use this feature again."),
-        f("Primal Lorist", "You learn Druidic and one Druid cantrip of your choice (it doesn't count against your cantrips known), and you gain proficiency in one of Animal Handling, Insight, Medicine, Nature, Perception, or Survival."),
-      ],
-      6: [f("Blessing of the Moonwells", "You always have Moonbeam prepared. You can cast it once without a spell slot, and you must finish a Long Rest before doing so again this way; you can also cast it using a spell slot of 2nd level or higher.")],
-      14: [f("Bolstered Folktales", "You can use certain Moonshae Folktales options without expending Bardic Inspiration, and one option also lets you briefly teleport.")],
-    },
-    "College of Swords": {
-      3: [f("Fighting Style & Blade Flourish", "Gain a Fighting Style, and can spend a Bardic Inspiration die on an attack for a Defensive, Slashing, or Mobile Flourish.")],
-      6: [f("Extra Attack", "You can attack twice, instead of once, whenever you take the Attack action on your turn.")],
-      10: [f("Precise Flourish", "Your swordplay grows more precise, striking truer with every Blade Flourish.")],
-      14: [f("Master's Flourish", "Use a free Bardic Inspiration die on a Blade Flourish instead of spending one of your own.")],
-    },
-    "College of Valor": {
-      3: [f("Combat Inspiration", "A Bardic Inspiration die can boost an ally's weapon damage roll or AC instead of the usual uses.")],
-      6: [f("Extra Attack", "You can attack twice, instead of once, whenever you take the Attack action on your turn.")],
-      10: [f("Battle-Tested", "Your battle-honed performances keep pace with your growing martial prowess.")],
-      14: [f("Battle Magic", "Make a weapon attack as a bonus action immediately after casting a bard spell.")],
-    },
-    "College of Whispers": {
-      3: [f("Psychic Blades & Words of Terror", "Deal bonus Psychic damage once per turn on a hit, and plant a seed of fear in private conversation.")],
-      6: [f("Mantle of Whispers", "Capture the shadow of a dying humanoid to briefly disguise yourself as them.")],
-      10: [f("Shadow Presence", "Your unsettling presence keeps sharpening, feeding on the fear of those around you.")],
-      14: [f("Shadow Lore", "Magically compel a creature to fear you and to never reveal what you discussed.")],
-    },
   },
   "Cleric": {
-    "Arcana Domain": {
-      2: [f("Arcane Initiate", "Learn two wizard cantrips, and gain proficiency in the Arcana skill.")],
-      6: [f("Spell Breaker", "When you heal a creature with a spell of 1st level or higher, you can also end one spell affecting it.")],
-      8: [f("Potent Spellcasting", "Add your Wisdom modifier to the damage of your cleric cantrips.")],
-      17: [f("Arcane Mastery", "Choose four wizard spells as always-prepared ritual and utility options.")],
-    },
-    "Death Domain": {
-      2: [f("Reaper", "Your necromancy cantrips can target one extra creature, and you can learn one from any class's list.")],
-      6: [f("Inescapable Destruction", "Your Necrotic damage ignores resistance to Necrotic damage.")],
-      8: [f("Divine Strike", "Once per turn, add extra Necrotic damage to a weapon hit.")],
-      17: [f("Improved Reaper", "Your damaging necromancy spells that normally target one creature can now target two.")],
-    },
-    "Forge Domain": {
-      2: [f("Blessing of the Forge", "Magically enhance a nonmagical weapon or armor with a +1 bonus until your next Long Rest.")],
-      6: [f("Soul of the Forge", "Resistance to Fire damage, and a bonus to AC while wearing heavy armor.")],
-      8: [f("Divine Strike", "Once per turn, add extra Fire damage to a weapon hit.")],
-      17: [f("Saint of Forge and Fire", "Your fire resistance becomes immunity, and your Blessing of the Forge grows stronger.")],
-    },
-    "Grave Domain": {
-      2: [f("Circle of Mortality & Eyes of the Grave", "Your healing spells work at maximum effect on creatures at 0 hit points, and you can sense undead nearby.")],
-      6: [f("Sentinel at Death's Door", "Use your reaction to turn a critical hit against a nearby creature into a normal hit.")],
-      8: [f("Potent Spellcasting", "Add your Wisdom modifier to the damage of your cleric cantrips.")],
-      17: [f("Keeper of Souls", "When you reduce an undead-fearing creature to 0 hit points, regain a spell slot.")],
-    },
-    "Knowledge Domain": {
-      2: [f("Blessings of Knowledge & Knowledge of the Ages", "Gain extra languages and skills, and temporarily gain proficiency with any skill or tool via Channel Divinity.")],
-      6: [f("Channel Divinity: Read Thoughts", "Read a creature's surface thoughts, with the option to also charm it.")],
-      8: [f("Potent Spellcasting", "Add your Wisdom modifier to the damage of your cleric cantrips.")],
-      17: [f("Visions of the Past", "Magically glimpse an object's or a place's recent past.")],
-    },
     "Life Domain": {
       2: [f("Disciple of Life", "Your healing spells restore extra hit points on top of what they normally would.")],
       6: [f("Blessed Healer", "Spells you cast that heal others also restore a few hit points to you.")],
       8: [f("Divine Strike", "Once per turn, add extra Radiant damage to a weapon hit.")],
       17: [f("Supreme Healing", "Your healing spells restore the maximum possible number of hit points instead of rolling.")],
     },
-    "Light Domain": {
-      2: [f("Warding Flare", "Use your reaction to impose disadvantage on an attacker's roll against you or an ally.")],
-      6: [f("Improved Warding Flare", "Warding Flare gains an extra use, and you can regain a use of it by expending a spell slot.")],
-      8: [f("Potent Spellcasting", "Add your Wisdom modifier to the damage of your cleric cantrips.")],
-      17: [f("Corona of Light", "Emit bright light in a wide radius, and give allies inside advantage on saves against your light-based spells' effects.")],
-    },
-    "Nature Domain": {
-      2: [f("Acolyte of Nature & Charm Animals and Plants", "Learn an extra druid cantrip and skill, and Channel Divinity to charm beasts and plant creatures nearby.")],
-      6: [f("Dampen Elements", "Use your reaction to grant resistance against an incoming acid, cold, fire, lightning, or thunder attack.")],
-      8: [f("Divine Strike", "Once per turn, add extra damage of a type you choose to a weapon hit.")],
-      17: [f("Master of Nature", "Command friendly beasts and plant creatures within range.")],
-    },
-    "Order Domain": {
-      2: [f("Voice of Authority & Order's Demand", "Allies can use their reaction to attack a creature you cast a spell on, and you can magically command creatures to kneel.")],
-      6: [f("Embodiment of the Law", "Cast Command using Channel Divinity without expending a spell slot, a limited number of times.")],
-      8: [f("Divine Strike", "Once per turn, add extra Psychic damage to a weapon hit.")],
-      17: [f("Order's Wrath", "Your weapon attacks deal extra Psychic damage against a creature you've magically commanded.")],
-    },
-    "Peace Domain": {
-      2: [f("Emboldening Bond", "Link a few allies together, so each gains a bonus die on rolls while another bonded ally is nearby.")],
-      6: [f("Protective Bond", "A bonded ally can teleport to intercept an attack meant for another bonded creature.")],
-      8: [f("Potent Spellcasting", "Add your Wisdom modifier to the damage of your cleric cantrips.")],
-      17: [f("Expert Divination", "Cast a divination spell for free using a spell slot, once per Long Rest.")],
-    },
-    "Tempest Domain": {
-      2: [f("Wrath of the Storm", "Use your reaction to deal Lightning or Thunder damage to a creature that hits you in melee.")],
-      6: [f("Destructive Wrath", "Guarantee maximum damage on your Wrath of the Storm or a thunder/lightning cleric spell, using Channel Divinity.")],
-      8: [f("Divine Strike", "Once per turn, add extra Thunder damage to a weapon hit.")],
-      17: [f("Stormborn", "Gain a flying speed whenever you're outdoors.")],
-    },
-    "Trickery Domain": {
-      2: [f("Blessing of the Trickster", "Touch a creature to grant it advantage on Dexterity (Stealth) checks.")],
-      6: [f("Channel Divinity: Invoke Duplicity", "Create an illusory duplicate of yourself to cast spells through and flank enemies with.")],
-      8: [f("Divine Strike", "Once per turn, add extra Poison damage to a weapon hit.")],
-      17: [f("Improved Duplicity", "Your illusory duplicate can now be created up to 30 feet away, and both can move independently.")],
-    },
-    "Twilight Domain": {
-      2: [f("Eyes of Night & Vigilant Blessing", "See in magical darkness, and give an ally advantage on their next initiative roll.")],
-      6: [f("Channel Divinity: Twilight Sanctuary", "A soothing 30-foot aura that grants temporary hit points or ends fear and charm on those inside it.")],
-      8: [f("Divine Strike", "Once per turn, add extra Radiant or Necrotic damage to a weapon hit.")],
-      17: [f("Twilight Shroud", "Your Twilight Sanctuary now also grants half cover to creatures inside it.")],
-    },
-    "War Domain": {
-      2: [f("War Priest", "Make an extra weapon attack as a bonus action, a limited number of times per Long Rest.")],
-      6: [f("Channel Divinity: Guided Strike", "Add +10 to an attack roll after seeing it miss.")],
-      8: [f("Divine Strike", "Once per turn, add extra damage to a weapon hit.")],
-      17: [f("Avatar of Battle", "Gain resistance to nonmagical bludgeoning, piercing, and slashing damage.")],
-    },
   },
   "Druid": {
-    "Circle of Dreams": {
-      2: [f("Balm of the Summer Court", "A pool of Fey energy, refreshed on a rest, that you can spend to heal allies as a bonus action.")],
-      6: [f("Hearth of Moonlight and Shadow", "You and your group can rest safely and undetected while traveling in the wild.")],
-      10: [f("Hidden Paths", "Use a bonus action to teleport yourself, or an ally, a short distance.")],
-      14: [f("Walker in Dreams", "Cast Dream, Scrying, or Teleportation Circle once without a spell slot, per Long Rest.")],
-    },
-    "Circle of Spores": {
-      2: [f("Circle Spells & Halo of Spores", "Gain thematic necrotic spells always prepared, and deal Necrotic damage to creatures that hit you in melee.")],
-      6: [f("Fungal Infestation", "Animate a slain Small or Medium creature into a temporary zombie-like minion.")],
-      10: [f("Spreading Spores", "Hurl your Halo of Spores' damage at a target from a distance instead.")],
-      14: [f("Fungal Body", "You're immune to critical hits, and don't need to eat, drink, or breathe.")],
-    },
-    "Circle of Stars": {
-      2: [f("Starry Form", "After casting a spell, transform into a Chalice, Archer, or Dragon constellation for a bonus effect.")],
-      6: [f("Cosmic Omen", "Roll a die at the start of the day to later grant allies advantage or impose disadvantage once.")],
-      10: [f("Twinkling Constellations", "Your Starry Form transformation lasts longer, and its benefits grow stronger.")],
-      14: [f("Full of Stars", "Become partially incorporeal, gaining resistance to bludgeoning, piercing, and slashing damage.")],
-    },
     "Circle of the Land": {
       2: [f("Circle Spells & Natural Recovery", "Always-prepared spells tied to your chosen terrain, and recover some expended spell slots on a Short Rest.")],
       6: [f("Land's Aid", "Spend a spell slot to heal a nearby creature and damage a nearby enemy with your terrain's power.")],
       10: [f("Nature's Ward", "Immunity to poison and disease, and you can't be frightened by creatures native to your terrain.")],
       14: [f("Nature's Sanctuary", "Creatures of your terrain have trouble targeting you in combat, and you gain resistance to their damage.")],
     },
-    "Circle of the Moon": {
-      2: [f("Combat Wild Shape", "Wild Shape as a bonus action, and can spend spell slots to heal while shapeshifted.")],
-      6: [f("Primal Strike", "Your attacks in Wild Shape form count as magical for overcoming resistance and immunity.")],
-      10: [f("Elemental Wild Shape", "Spend spell slots to transform into an air, earth, fire, or water elemental.")],
-      14: [f("Thousand Forms", "Cast Alter Self at will.")],
-    },
-    "Circle of the Shepherd": {
-      2: [f("Speech of the Woods & Spirit Totem", "Talk to beasts, and summon a Bear, Hawk, or Unicorn spirit that aids nearby allies.")],
-      6: [f("Mighty Summoner", "Beasts and fey you summon are tougher and hit harder than usual.")],
-      10: [f("Guardian Spirit", "Your Spirit Totem heals nearby allies whenever it damages a foe.")],
-      14: [f("Faithful Summons", "If you drop to 0 hit points, automatically summon protective spirits to defend you.")],
-    },
-    "Circle of Wildfire": {
-      2: [f("Circle Spells & Summon Wildfire Spirit", "Always-prepared fire and healing spells, and a fiery spirit companion that can heal allies or damage foes.")],
-      6: [f("Enhanced Bond", "Your spirit's attacks add your Wisdom modifier, and its damage can be redirected into healing.")],
-      10: [f("Cauterizing Flames", "When a creature dies near your spirit, choose to heal an ally or damage an enemy nearby.")],
-      14: [f("Blazing Revival", "Once per Long Rest, come back from 0 hit points in a burst of flame.")],
-    },
   },
   "Fighter": {
-    "Arcane Archer": {
-      3: [f("Arcane Archer Lore & Arcane Shot", "Learn a couple of wizard cantrips, and imbue an arrow with a magical shot option such as Banishing, Beguiling, or Seeking.")],
-      7: [f("Curving Shot", "Redirect a missed Arcane Shot arrow to strike another target nearby.")],
-      10: [f("Additional Arcane Shot Option", "Learn one more Arcane Shot option.")],
-      15: [f("Ever-Ready Shot", "Regain one use of Arcane Shot for free if you have none left when you roll initiative.")],
-      18: [f("Additional Arcane Shot Option (2)", "Learn another Arcane Shot option.")],
-    },
-    "Battle Master": {
-      3: [f("Combat Superiority & Student of War", "Learn a set of Maneuvers fueled by Superiority Dice, and gain a tool proficiency.")],
-      7: [f("Know Your Enemy", "Study a creature briefly to learn how its capabilities compare to yours.")],
-      10: [f("Improved Combat Superiority (d10)", "Your Superiority Dice become d10s.")],
-      15: [f("Relentless", "Regain one Superiority Die for free if you have none left when you roll initiative.")],
-      18: [f("Improved Combat Superiority (d12)", "Your Superiority Dice become d12s.")],
-    },
-    "Cavalier": {
-      3: [f("Bonus Proficiency & Born to the Saddle", "Gain a skill proficiency, and mount or dismount easily, never falling from your mount involuntarily.")],
-      7: [f("Unwavering Mark", "Mark a creature you hit, gaining a punishing reaction if it attacks someone other than you.")],
-      10: [f("Warding Maneuver", "Use your reaction to add a die to your or a nearby ally's AC or saving throw against an attack.")],
-      15: [f("Vigilant Defender", "Take a special reaction on every creature's turn but your own.")],
-      18: [f("Ferocious Charger", "A creature you hit after moving at least 10 feet toward it must save or fall prone.")],
-    },
     "Champion": {
       3: [f("Improved Critical", "Your weapon attacks score a critical hit on a roll of 19 or 20.")],
       7: [f("Remarkable Athlete", "Add half your proficiency bonus to Strength, Dexterity, or Constitution checks that don't already use it, and jump farther.")],
@@ -3431,308 +2823,32 @@ const SUBCLASS_LEVEL_FEATURES = {
       15: [f("Superior Critical", "Your weapon attacks score a critical hit on a roll of 18-20.")],
       18: [f("Survivor", "Regain hit points at the start of your turn if you're below half your hit point maximum.")],
     },
-    "Echo Knight": {
-      3: [f("Manifest Echo", "Summon a spectral echo of yourself that you can attack, move, and swap places through.")],
-      7: [f("Unleash Incarnation", "Make an extra attack originating from your echo's position.")],
-      10: [f("Echo Avatar", "Send your echo far away to scout, largely unaffected by harm.")],
-      15: [f("Shadow Martyr", "Your echo can intercept an attack or effect meant for a nearby creature.")],
-      18: [f("Legion of One", "Manifest two echoes at once.")],
-    },
-    "Eldritch Knight": {
-      3: [f("Spellcasting & Weapon Bond", "Learn wizard cantrips and spells (mostly Abjuration and Evocation), and bond with weapons you can summon to your hand.")],
-      7: [f("War Magic", "Make a weapon attack as a bonus action immediately after casting a cantrip.")],
-      10: [f("Eldritch Strike", "A creature you hit has disadvantage on its next saving throw against your next spell.")],
-      15: [f("Arcane Charge", "Teleport up to 30 feet as part of your Action Surge.")],
-      18: [f("Improved War Magic", "Make a weapon attack as a bonus action after casting any spell, not just a cantrip.")],
-    },
-    "Psi Warrior": {
-      3: [f("Psionic Power", "Gain Psionic Energy dice to boost attacks or AC, and telekinetically move objects or yourself.")],
-      7: [f("Telekinetic Adept", "Telekinetically move creatures, or use telekinesis for a Shove- or Trip-like effect.")],
-      10: [f("Guarded Mind", "Resistance to Psychic damage, and can spend a Psionic die to end being charmed or frightened.")],
-      15: [f("Bulwark of Force", "Grant yourself and nearby allies resistance to damage using your telekinetic power.")],
-      18: [f("Telekinetic Master", "Cast Telekinesis without a spell slot, once per Long Rest.")],
-    },
-    "Purple Dragon Knight": {
-      3: [f("Rallying Cry", "After using Second Wind, inspire nearby allies with a few temporary hit points.")],
-      7: [f("Royal Envoy", "Gain proficiency (or expertise) in Persuasion, and advantage on checks made to influence crowds.")],
-      10: [f("Inspiring Surge", "When you use Action Surge, a nearby ally can also make an extra attack.")],
-      15: [f("Bulwark", "Nearby allies also gain the benefit of your Indomitable feature.")],
-      18: [f("Hold the Line", "Your leadership on the battlefield reaches even further, rallying every ally who can see you.")],
-    },
-    "Rune Knight": {
-      3: [f("Bonus Proficiencies & Rune Carver", "Gain giant-related proficiencies, and carve magic runes (Cloud, Fire, Frost, Stone, and more) into your gear for special effects.")],
-      7: [f("Giant's Might", "Use a bonus action to grow to Large size, gaining extra damage and advantage on Strength checks.")],
-      10: [f("Additional Rune", "Learn one more rune.")],
-      15: [f("Great Stature", "You permanently grow slightly, and your Giant's Might damage increases.")],
-      18: [f("Master of Runes", "Use each of your runes' special effects twice per Long Rest instead of once.")],
-    },
-    "Samurai": {
-      3: [f("Bonus Proficiency & Fighting Spirit", "Gain a skill or language, and use a bonus action to grant yourself temporary hit points and advantage on attacks for a moment.")],
-      7: [f("Elegant Courtier", "Add your Wisdom modifier to Persuasion checks, and gain proficiency (or expertise) in a saving throw.")],
-      10: [f("Tireless Spirit", "Regain one use of Fighting Spirit for free if you have none left when you roll initiative.")],
-      15: [f("Rapid Strike", "Forgo advantage on an attack roll to make an extra weapon attack.")],
-      18: [f("Strength before Death", "When reduced to 0 hit points without being killed outright, act one more time before falling.")],
-    },
   },
   "Monk": {
-    "Drunken Master": {
-      3: [f("Bonus Proficiencies & Drunken Technique", "Gain proficiency with brewer's tools, and Flurry of Blows grants a bonus Disengage and extra movement that looks like a stumble.")],
-      6: [f("Tipsy Sway", "Spend a Focus Point to seemingly stumble and fall, then stand back up as a bonus action, avoiding an attack.")],
-      11: [f("Drunkard's Luck", "Spend a Focus Point to gain advantage on a saving throw you're about to fail.")],
-      17: [f("Intoxicated Frenzy", "Your Flurry of Blows can strike up to three different targets.")],
-    },
-    "Four Elements": {
-      3: [f("Disciple of the Elements", "Spend Focus Points to cast elemental-themed effects such as Fangs of the Fire Snake or Water Whip.")],
-      6: [f("Additional Elemental Discipline", "Gain a new elemental discipline option to spend Focus Points on.")],
-      11: [f("Additional Elemental Discipline (2)", "Gain another, higher-cost elemental discipline option.")],
-      17: [f("Additional Elemental Discipline (3)", "Gain your most powerful elemental discipline option yet.")],
-    },
-    "Kensei": {
-      3: [f("Path of the Kensei", "Choose kensei weapons, and gain a bonus to their attack or damage roll a few times per turn.")],
-      6: [f("One with the Blade", "Your kensei weapons deal extra damage on a critical hit, and you can deflect ranged attacks.")],
-      11: [f("Sharpen the Blade", "Spend Focus Points to magically enhance a kensei weapon temporarily.")],
-      17: [f("Unerring Accuracy", "Reroll a missed kensei weapon attack once per turn.")],
-    },
-    "Long Death": {
-      3: [f("Touch of Death", "When you reduce a creature to 0 hit points, gain a pool of temporary hit points.")],
-      6: [f("Hour of Reaping", "Use your action to frighten creatures around you.")],
-      11: [f("Mastery of Death", "Spend a Focus Point to avoid dropping to 0 hit points instead of dying outright.")],
-      17: [f("Touch of the Long Death", "Spend several Focus Points to deal significant Necrotic damage by touch, at some risk to yourself.")],
-    },
-    "Mercy": {
-      3: [f("Implements of Mercy & Hand of Healing/Harm", "Gain proficiency with disguise and healer's kits, and spend Focus Points to heal or harm with a touch.")],
-      6: [f("Physician's Touch", "Your Hand of Healing or Harm can also cure a condition or briefly impose paralysis.")],
-      11: [f("Flurry of Healing and Harm", "Heal or harm a creature as part of your Flurry of Blows, at no extra cost.")],
-      17: [f("Hand of Ultimate Mercy", "Once, restore a recently-dead creature to life.")],
-    },
     "Open Hand": {
       3: [f("Open Hand Technique", "Your Flurry of Blows hits can knock a creature prone, push it away, or deny its reactions.")],
       6: [f("Wholeness of Body", "Use a bonus action to heal yourself a modest amount of hit points.")],
       11: [f("Tranquility", "You gain the effect of Sanctuary at the start of each day, until you use it.")],
       17: [f("Quivering Palm", "Set up a devastating vibration in a creature you've struck, which you can later trigger to nearly kill it.")],
     },
-    "Shadow": {
-      3: [f("Shadow Arts", "Spend Focus Points for minor illusion and darkness-themed spell effects, including Darkness and Pass Without Trace.")],
-      6: [f("Shadow Step", "Teleport between two dim or dark spaces as a bonus action, gaining advantage on your next attack.")],
-      11: [f("Cloak of Shadows", "Become invisible whenever you're in an area of dim light or darkness.")],
-      17: [f("Opportunist", "Attack a creature whenever an ally hits it within 5 feet of you, once per turn.")],
-    },
-    "Sun Soul": {
-      3: [f("Radiant Sun Bolt", "Hurl a bolt of Radiant energy as a spell attack, fueled by your ki.")],
-      6: [f("Searing Arc Strike", "Spend Focus Points to cast a small Burning Hands-like effect right after the Attack action.")],
-      11: [f("Searing Sunburst", "Create a burst of Radiant light that damages everyone caught in a sphere.")],
-      17: [f("Sun Shield", "Glow with light, damaging creatures that hit you in melee.")],
-    },
-    // Added 2026-09-21 from Arcana Unleashed - one of only 2 of that book's
-    // 8 "new" subclasses that are genuinely new rather than reworks of
-    // existing ones (see vault-map.md). UPDATE 2026-10-12: level 11's
-    // "Centered Focus" name/effect corroborated independently (its
-    // Concentration-advantage wording matches what's already below) -
-    // no longer flagged as uncertain.
-    "Warrior of the Mystic Arts": {
-      3: [
-        f("Spellcasting", "You learn two cantrips of your choice from the Sorcerer spell list, and you prepare a small number of Sorcerer spells that grows as you gain levels; Wisdom is your spellcasting ability for these spells."),
-        f("Mystic Fighting Style", "When you take the Attack action on your turn, you can replace one of your attacks with a casting of one of your Sorcerer cantrips that has a casting time of an action."),
-      ],
-      6: [f("Mystic Focus", "You can expend a spell slot to regain a number of expended Focus Points equal to the slot's level, and you can expend Focus Points to convert them back into a spell slot.")],
-      11: [f("Centered Focus", "You have advantage on any saving throw you make to maintain Concentration when you expend a Focus Point to use Flurry of Blows, Patient Defense, or Step of the Wind.")],
-      17: [f("Improved Mystic Fighting Style", "When you take the Attack action on your turn, you can replace two of your attacks with a casting of one of your level 1 or 2 Sorcerer spells that has a casting time of an action.")],
-    },
   },
   "Paladin": {
-    "Ancients": {
-      3: [f("Channel Divinity: Nature's Wrath & Turn the Faithless", "Restrain a nearby creature with spectral vines, or turn fey and fiends.")],
-      7: [f("Aura of Warding", "You and nearby allies gain resistance to damage from spells.")],
-      15: [f("Undying Sentinel", "Avoid dropping below 1 hit point once per Long Rest, and you age more slowly.")],
-      20: [f("Elder Champion", "Transform to regenerate hit points, cast spells as a bonus action, and hinder enemies' saving throws.")],
-    },
-    "Conquest": {
-      3: [f("Channel Divinity: Conquering Presence & Guided Strike", "Frighten a group of nearby enemies, or add +10 to an attack roll after seeing it miss.")],
-      7: [f("Aura of Conquest", "Frightened creatures near you have their speed reduced to 0 and take Psychic damage.")],
-      15: [f("Scornful Rebuke", "Creatures that hit you in melee take Psychic damage in return.")],
-      20: [f("Invincible Conqueror", "Become resistant to all damage and gain an extra attack each turn, for one minute.")],
-    },
-    "Crown": {
-      3: [f("Channel Divinity: Champion Challenge & Turn the Tide", "Force a creature to focus its attacks on you, or use your reaction to heal your group.")],
-      7: [f("Divine Allegiance", "Take damage that would hit a nearby ally instead.")],
-      15: [f("Unyielding Spirit", "You can't be paralyzed or stunned.")],
-      20: [f("Exalted Champion", "Gain resistance to nonmagical damage and grant advantage on saves to nearby allies, for ten minutes.")],
-    },
     "Devotion": {
       3: [f("Channel Divinity: Sacred Weapon & Turn the Unholy", "Add your Charisma modifier to weapon attack rolls temporarily, or turn fiends and undead.")],
       7: [f("Aura of Devotion", "You and nearby allies can't be charmed.")],
       15: [f("Purity of Spirit", "You're constantly under the effect of Protection from Evil and Good.")],
       20: [f("Holy Nimbus", "Emanate sunlight that damages fiends and undead, and grants advantage on saves against their spells.")],
     },
-    "Glory": {
-      3: [f("Channel Divinity: Peerless Athlete & Inspiring Smite", "Gain advantage on Athletics or Acrobatics checks briefly, or grant nearby allies temporary hit points after a Divine Smite.")],
-      7: [f("Aura of Alacrity", "Your speed increases, and moving to an ally's side lets you share the bonus with them.")],
-      15: [f("Glorious Defense", "Use your reaction to add a bonus to your or a nearby ally's AC against an attack, and counterattack if it still misses.")],
-      20: [f("Living Legend", "Gain advantage on ability checks, extraordinary luck on a failed attack once per turn, and can captivate a crowd once per Long Rest.")],
-    },
-    "Oathbreaker": {
-      3: [f("Channel Divinity: Control Undead & Dreadful Aspect", "Dominate an undead creature, or frighten nearby foes.")],
-      7: [f("Aura of Despair", "Creatures near you have disadvantage on saving throws.")],
-      15: [f("Supernatural Resistance", "Resistance to nonmagical bludgeoning, piercing, and slashing damage.")],
-      20: [f("Dread Lord", "Surround yourself with dark power to fly, deal extra Necrotic damage, and frighten with your smites.")],
-    },
-    "Redemption": {
-      3: [f("Channel Divinity: Emissary of Peace & Rebuke the Violent", "Grant yourself a bonus to Persuasion checks briefly, or punish a creature that hits you.")],
-      7: [f("Aura of the Guardian", "Magically transfer damage from a nearby ally onto yourself.")],
-      15: [f("Protective Spirit", "Heal a little whenever you end your turn below half your hit points in combat.")],
-      20: [f("Emissary of Redemption", "Reflect some damage back at attackers you haven't harmed, as long as you take no hostile action.")],
-    },
-    "Vengeance": {
-      3: [f("Channel Divinity: Abjure Enemy & Vow of Enmity", "Frighten and hinder a creature's movement, or gain advantage on attacks against a chosen foe.")],
-      7: [f("Relentless Avenger", "Move part of your speed as part of your reaction attack.")],
-      15: [f("Soul of Vengeance", "Use your reaction to attack a creature under your Vow of Enmity when it attacks someone else.")],
-      20: [f("Avenging Angel", "Sprout wings to fly, and frighten enemies who see you.")],
-    },
-    "Watchers": {
-      3: [f("Channel Divinity: Watcher's Will & Abjure the Extraplanar", "Grant yourself and allies advantage on an Intelligence, Wisdom, or Charisma save, or hinder aberrations, celestials, elementals, fey, and fiends.")],
-      7: [f("Aura of the Sentinel", "You and nearby allies gain a bonus to initiative rolls.")],
-      15: [f("Vigilant Rebuke", "You and nearby allies can make a reaction attack against a creature that turns invisible or teleports nearby.")],
-      20: [f("Mortal Bulwark", "Briefly see the true form of extraplanar creatures, and gain a potent bonus against them.")],
-    },
-    // Added 2026-09-21 from Forgotten Realms: Heroes of Faerûn - see
-    // vault-map.md for sourcing caveats.
-    "Oath of the Noble Genies": {
-      3: [
-        f("Elemental Smite", "Your Channel Divinity gains a new option: when you use Divine Smite, you can also choose Dao's Crush, Djinni's Escape, Efreeti's Fury, or Marid's Surge for an additional elemental effect."),
-        f("Genie Spells", "You always have certain spells prepared once you reach the levels noted for each: Chromatic Orb and Elementalism (3rd), Thunderous Smite and Mirror Image (5th), Phantasmal Force and Fly (9th), Gaseous Form and Conjure Minor Elementals (13th), Summon Elemental and Banishing Smite (17th)."),
-        f("Genie's Splendor", "While you aren't wearing medium or heavy armor, your AC equals 10 plus your Dexterity and Charisma modifiers (a shield's bonus still applies), and you gain proficiency in Acrobatics, Intimidation, Performance, or Persuasion."),
-      ],
-      7: [f("Aura of Elemental Shielding", "At the start of each of your turns, you and allies within the aura gain resistance to one damage type of your choice: Acid, Cold, Fire, Lightning, or Thunder.")],
-      15: [f("Elemental Rebuke", "When you're hit by an attack, you can use your reaction to force the attacker to make a Dexterity saving throw or take elemental damage of a type you choose, and you reduce the triggering attack's damage to you.")],
-      20: [f("Noble Scion", "Once per Long Rest, you can fly for one hour, and once during that time you can turn a failed d20 Test (yours or one you can see within range) into a success.")],
-    },
   },
   "Ranger": {
-    "Beast Master": {
-      3: [f("Ranger's Companion", "Gain a loyal beast companion that fights and travels at your side.")],
-      7: [f("Exceptional Training", "Your companion can Dash, Disengage, or Help without using its action, and its attacks count as magical.")],
-      11: [f("Bestial Fury", "Your companion can make two attacks when you command it to attack.")],
-      17: [f("Share Spells", "Your touch-range spells can also affect your companion, if it's within 30 feet of you.")],
-    },
-    "Fey Wanderer": {
-      3: [f("Dreadful Strikes & Otherworldly Glamour", "Your weapon attacks deal extra Psychic damage once per turn, and you gain a bonus to Persuasion and Performance checks.")],
-      7: [f("Beguiling Twist", "Grant a nearby ally advantage against being charmed or frightened, or end such an effect on them.")],
-      11: [f("Fey Reinforcements", "Cast Summon Fey without a spell slot, once per Long Rest.")],
-      17: [f("Misty Wanderer", "Cast Misty Step for free, and can bring a willing creature along with you.")],
-    },
-    "Gloom Stalker": {
-      3: [f("Dread Ambusher & Umbral Sight", "Extra damage and speed on your first turn in combat, and see in darkness, including magical darkness.")],
-      7: [f("Iron Mind", "Gain proficiency in Wisdom or Intelligence saving throws.")],
-      11: [f("Stalker's Flurry", "Make an extra attack when you miss with an attack roll, once per turn.")],
-      17: [f("Shadowy Dodge", "Use your reaction to impose disadvantage on an attack roll against you.")],
-    },
-    "Horizon Walker": {
-      3: [f("Detect Portal & Planar Warrior", "Sense nearby planar portals, and imbue a hit with extra Force damage once per turn.")],
-      7: [f("Ethereal Step", "Cast Etherealness for a moment, once per Short or Long Rest.")],
-      11: [f("Distant Strike", "Teleport a short distance between your attacks when you take the Attack action.")],
-      17: [f("Spectral Defense", "Use your reaction to briefly gain resistance to all damage from a single attack.")],
-    },
     "Hunter": {
       3: [f("Hunter's Prey", "Choose Colossus Slayer, Giant Killer, or Horde Breaker for a combat edge against your foes.")],
       7: [f("Defensive Tactics", "Choose Escape the Horde, Multiattack Defense, or Steel Will for a defensive edge.")],
       11: [f("Multiattack", "Choose Volley (hit many nearby foes with a ranged attack) or Whirlwind Attack (the melee version).")],
       17: [f("Superior Hunter's Defense", "Choose Evasion, Stand Against the Tide, or Uncanny Dodge for an even stronger defense.")],
     },
-    "Monster Slayer": {
-      3: [f("Hunter's Sense & Slayer's Prey", "Learn a creature's damage resistances or immunities on sight, and mark a foe to deal extra damage to.")],
-      7: [f("Supernatural Defense", "Add a bonus to a saving throw against magic used by your marked prey.")],
-      11: [f("Magic-User's Nemesis", "Use your reaction to foil a nearby creature's spell, teleport, or extradimensional escape attempt.")],
-      17: [f("Slayer's Counter", "If your Slayer's Prey attack is interrupted by a forced saving throw, your damage happens anyway.")],
-    },
-    "Swarmkeeper": {
-      3: [f("Gathered Swarm & Swarmkeeper Magic", "A swarm of Tiny spirits follows you, letting you reposition foes and yourself, plus a couple of bonus spells.")],
-      7: [f("Writhing Tide", "Move through the space of a Large or smaller creature, or gain a short flying or climbing burst.")],
-      11: [f("Mighty Swarm", "Your swarm can knock foes prone, push them away, or pull them closer.")],
-      17: [f("Swarming Dispersal", "Vanish into your swarm to become briefly invisible whenever you take damage.")],
-    },
-    // Added 2026-09-21 from Forgotten Realms: Heroes of Faerûn - see
-    // vault-map.md for sourcing caveats. Secondary sources placed the
-    // capstone feature at "15th level," but this plugin's Ranger schema
-    // only swaps subclass features at 3/7/11/17 (matching every other
-    // Ranger subclass above), so it's placed at 17 here instead.
-    "Winter Walker": {
-      3: [
-        f("Frigid Explorer", "You have resistance to Cold damage, and once per turn when you hit a creature with an attack, you can deal an extra 1d4 Cold damage that ignores resistance."),
-        f("Hunter's Rime", "When you cast Hunter's Mark, you gain temporary hit points equal to 1d10 plus your Ranger level, and the marked creature can't willingly move away from you using its Disengage action."),
-        f("Winter Walker Spells", "You always have certain spells prepared once you reach the levels noted for each: Ice Knife (3rd), Pass without Trace (5th), Remove Curse (9th), Ice Storm (13th), Cone of Cold (17th)."),
-      ],
-      7: [f("Fortifying Soul", "Once per Long Rest as a Magic action, a number of creatures you choose within 30 feet (up to your Wisdom modifier, minimum one) each regain 1d10 plus your Ranger level hit points and gain advantage on saving throws against being frightened for 1 hour.")],
-      11: [f("Chilling Retribution", "When you're hit by an attack, you can use your reaction to force the attacker to make a Wisdom saving throw or have its speed reduced to 0 until the end of your next turn.")],
-      17: [f("Frozen Haunt", "While Hunter's Mark is active (usable once per Long Rest this way), you become a ghostly, cold-wreathed form: you're immune to being grappled, knocked prone, or restrained, you can move through creatures and objects as if they were difficult terrain, and an emanation around you deals Cold damage to hostile creatures nearby.")],
-    },
   },
   "Rogue": {
-    "Arcane Trickster": {
-      3: [f("Spellcasting & Mage Hand Legerdemain", "Learn a few wizard spells (mostly Illusion and Enchantment), and use an invisible Mage Hand to steal, plant, or pick locks.")],
-      9: [f("Magical Ambush", "A creature you cast a spell on, while hidden from it, has disadvantage on its saving throw.")],
-      13: [f("Versatile Trickster", "Briefly distract a creature via your Mage Hand to gain advantage against it.")],
-      18: [f("Spell Thief", "Steal a spell right out of a creature's mind as it casts it, and cast it yourself later.")],
-    },
-    "Assassin": {
-      3: [f("Bonus Proficiencies & Assassinate", "Gain proficiency with disguise and poisoner's kits, and score automatic critical hits against surprised creatures.")],
-      9: [f("Infiltration Expertise", "Spend downtime to craft a false identity.")],
-      13: [f("Impostor", "Perfectly mimic another person's speech, writing, and behavior after studying them closely.")],
-      18: [f("Death Strike", "A surprised creature you hit must save or take double damage.")],
-    },
-    "Inquisitive": {
-      3: [f("Ear for Deceit & Eye for Detail", "Get better at sensing lies, and spend a bonus action to spot hidden creatures or details.")],
-      9: [f("Insightful Fighting", "Use Insight to size up a foe and deal Sneak Attack against it even without advantage.")],
-      13: [f("Steady Eye", "Gain advantage on a Perception or Investigation check if you don't move that turn.")],
-      18: [f("Eye for Weakness", "Your Insightful Fighting adds extra Sneak Attack damage.")],
-    },
-    "Mastermind": {
-      3: [f("Master of Intrigue & Master of Tactics", "Mimic dialects and gain extra tool proficiencies, and grant an ally a Help-like bonus at range.")],
-      9: [f("Insightful Manipulator", "Briefly learn how a creature's Strength, Dexterity, Constitution, deception, and insight compare to yours.")],
-      13: [f("Misdirection", "Redirect an attack that hits you onto a nearby creature instead, tricking the attacker.")],
-      18: [f("Soul of Deceit", "Your thoughts can't be read, and you can plant false surface thoughts if probed.")],
-    },
-    "Phantom": {
-      3: [f("Whispers of the Dead & Wails from the Grave", "Briefly gain a skill or tool proficiency from a spirit's memory, and Sneak Attack damage can also hit a second nearby target.")],
-      9: [f("Tokens of the Departed", "Create a soul trinket from a dying creature, usable later for a magical benefit.")],
-      13: [f("Ghost Walk", "Briefly become incorporeal, immune to nonmagical damage and able to move through objects.")],
-      18: [f("Death's Friend", "Your Wails from the Grave counts as extra Sneak Attack damage, and your soul trinkets grow more powerful.")],
-    },
-    // Added 2026-09-21 from Forgotten Realms: Heroes of Faerûn - see
-    // vault-map.md for sourcing caveats. UPDATE 2026-10-12: re-researched
-    // against 2 independent secondary sources (wargamer.com, dungeonmister.com)
-    // now that dnd2024.wikidot.com-style detail is reachable; Bloodthirst,
-    // Aura of Malevolence, Strike Fear, and Dread Incarnate all corrected
-    // below (the original guesses for these four were wrong, not just
-    // unverified - official capstone is printed at 17th level but kept at
-    // this plugin's fixed 18-slot, matching every other Rogue subclass).
-    // Still a secondary-source paraphrase, not verbatim book text.
-    "Scion of the Three": {
-      3: [
-        f("Bloodthirst", "Once a creature you can see within 30 feet becomes Bloodied, you can use your reaction to teleport next to it and make a melee attack (weapon or spell) against it. You can use this a number of times equal to your Intelligence modifier (minimum once), regaining all expended uses when you finish a Long Rest."),
-        f("Dread Allegiance", "At the end of a Long Rest, you can dedicate yourself to Bane, Bhaal, or Myrkul, gaining a damage resistance and a cantrip tied to your choice until your next Long Rest."),
-      ],
-      9: [f("Strike Fear", "You gain a new Cunning Strike option: by forgoing one Sneak Attack die of extra damage, you can frighten the creature you hit until the start of your next turn, and you have advantage on attack rolls against a creature frightened this way.")],
-      13: [f("Aura of Malevolence", "When you teleport using Bloodthirst, creatures you choose within 10 feet of your starting or landing space take Necrotic damage equal to your Intelligence modifier, ignoring resistance to it.")],
-      18: [f("Dread Incarnate", "You regain one expended use of Bloodthirst when you finish a Short Rest, and whenever you roll a 1 or 2 on a Sneak Attack damage die, you treat the roll as a 3.")],
-    },
-    "Scout": {
-      3: [f("Skirmisher & Survivalist", "Move away from an enemy that ends its turn near you, and gain proficiency (or expertise) in Nature and Survival.")],
-      9: [f("Superior Mobility", "Your walking, climbing, and swimming speed all increase.")],
-      13: [f("Ambush Master", "You and allies gain advantage on initiative, and a creature you hit first in combat is easier for allies to hit.")],
-      18: [f("Sudden Strike", "Attack twice when you use your bonus action Cunning Action, but only apply Sneak Attack once per turn.")],
-    },
-    "Soulknife": {
-      3: [f("Psionic Power & Psychic Blades", "Gain Psionic Energy dice, and manifest a pair of throwable psychic blades as your weapon.")],
-      9: [f("Soul Blades", "Read a creature's surface thoughts, or make your blade strike twice in an unnerving flash.")],
-      13: [f("Psychic Teleportation", "Spend a Psionic die to teleport a short distance as a bonus action.")],
-      18: [f("Rend Mind", "A creature hit by your Psychic Blades can be stunned if it fails a saving throw.")],
-    },
-    "Swashbuckler": {
-      3: [f("Fancy Footwork & Rakish Audacity", "Moving away from a creature you attack doesn't provoke it, and you add Charisma to initiative plus can Sneak Attack while alone with a foe.")],
-      9: [f("Panache", "A successful Persuasion check can turn a hostile creature briefly friendly or distracted.")],
-      13: [f("Elegant Maneuver", "Gain advantage on an Acrobatics or Athletics check as a bonus action.")],
-      18: [f("Master Duelist", "Turn a failed attack roll into a success, once per Short or Long Rest.")],
-    },
     "Thief": {
       3: [f("Fast Hands & Second-Story Work", "Use Cunning Action to also use an object or pick a lock or pocket, and climbing costs no extra movement while you jump farther.")],
       9: [f("Supreme Sneak", "Gain advantage on Stealth checks if you move at half speed.")],
@@ -3741,202 +2857,25 @@ const SUBCLASS_LEVEL_FEATURES = {
     },
   },
   "Sorcerer": {
-    "Aberrant Mind": {
-      6: [f("Warping Implosion", "Teleport a short distance and violently pull nearby creatures toward the space you left.")],
-      14: [f("Revelation in Flesh", "Briefly reshape your body for a swim or fly speed, extra reach, or to become amorphous.")],
-    },
-    "Clockwork Soul": {
-      6: [f("Bastion of Law", "Shield a creature with a temporary ward that absorbs damage, usable a few times per Long Rest.")],
-      14: [f("Trance of Order", "Before a creature's attack roll or save-inducing effect resolves against you, slightly adjust the roll.")],
-    },
-    "Divine Soul": {
-      6: [f("Empowered Healing", "Spend Sorcery Points to reroll healing dice from your or another creature's spell.")],
-      14: [f("Angelic Form", "Sprout spectral wings to fly, and shed bright light around yourself.")],
-    },
     "Draconic Bloodline": {
       6: [f("Elemental Affinity", "Add your Charisma modifier to the damage of a spell matching your draconic damage type, and can gain resistance to it.")],
       14: [f("Dragon Wings", "Sprout dragon wings to gain a flying speed.")],
     },
-    "Shadow Magic": {
-      6: [f("Eyes of the Dark", "See in magical darkness, and cast Darkness by spending Sorcery Points instead of a spell slot.")],
-      14: [f("Umbral Form", "Become a shadow, gaining resistance to nonmagical damage and the ability to move through small gaps.")],
-    },
-    // Added 2026-09-21 from Arcana Unleashed - see vault-map.md for
-    // sourcing caveats. This plugin's Sorcerer schema only swaps subclass
-    // features at 6/14 for every subclass above (a pre-existing scope
-    // limit, not something new introduced here), so Spellfire Sorcery's
-    // real 3rd-level "Spellfire Burst/Spells" and 18th-level "Crown of
-    // Spellfire" features aren't represented - only its 6th/14th are.
-    "Spellfire Sorcery": {
-      6: [f("Absorb Spells", "You always have Counterspell prepared, and you can cast it without expending a spell slot. When a spell fails against this Counterspell, you regain a number of Sorcery Points equal to the level of the failed spell (minimum 1).")],
-      14: [f("Honed Spellfire", "Once per turn when you spend a Sorcery Point, you can also grant a creature within 30 feet of yourself 1d8 temporary hit points, or deal 1d8 Fire or Radiant damage to a hostile creature within 30 feet of yourself.")],
-    },
-    "Storm Sorcery": {
-      6: [f("Heart of the Storm & Storm Guide", "Gain resistance to lightning and thunder damage when casting a spell of 1st level or higher, plus minor weather control.")],
-      14: [f("Wind Soul", "Gain a flying speed, and can grant flight and lightning resistance to others briefly.")],
-    },
-    "Wild Magic": {
-      6: [f("Bend Luck", "Spend Sorcery Points to adjust an attack roll, ability check, or saving throw made by another creature.")],
-      14: [f("Controlled Chaos", "Roll twice on the Wild Magic Surge table and choose either result.")],
-    },
   },
   "Warlock": {
-    "Archfey": {
-      3: [f("Fey Presence", "Force nearby creatures to be frightened or charmed for a moment, once per rest.")],
-      6: [f("Misty Escape", "Turn invisible and teleport a short distance away when you take damage.")],
-      10: [f("Beguiling Defenses", "You're immune to being charmed, and can turn a charm effect back on its source.")],
-      14: [f("Dark Delirium", "Briefly incapacitate and isolate a creature in an illusory realm.")],
-    },
-    "Celestial": {
-      3: [f("Bonus Cantrips & Healing Light", "Learn Sacred Flame and Light, and heal creatures using a pool of d6s that refreshes on a rest.")],
-      6: [f("Radiant Soul", "Resistance to Radiant damage, and add your Charisma modifier to Radiant spell damage.")],
-      10: [f("Celestial Resilience", "You and nearby allies gain temporary hit points after a Short Rest.")],
-      14: [f("Searing Vengeance", "If you'd die, instead stand back up in a burst of radiant fire.")],
-    },
-    "Fathomless": {
-      3: [f("Tentacle of the Deep & Gift of the Sea", "Summon a temporary spectral tentacle to attack with, and gain a swim speed with limited underwater breathing.")],
-      6: [f("Guardian Coil", "Your tentacle can protect a creature by intercepting an attack meant for it.")],
-      10: [f("Grasping Tentacles", "Cast Evard's Black Tentacles using a warlock spell slot, without needing it prepared.")],
-      14: [f("Fathomless Plunge", "Teleport yourself and nearby allies into deep water briefly.")],
-    },
     "Fiend": {
       3: [f("Dark One's Blessing", "Gain temporary hit points whenever you reduce a hostile creature to 0 hit points.")],
       6: [f("Dark One's Own Luck", "Add a bonus to an ability check or saving throw, once per Short or Long Rest.")],
       10: [f("Fiendish Resilience", "Choose a damage type to resist until your next rest.")],
       14: [f("Hurl Through Hell", "Banish a struck creature briefly to a hellish plane, dealing Psychic damage.")],
     },
-    "Genie": {
-      3: [f("Genie's Vessel & Bottled Respite", "Bond with a magical vessel you can summon, and retreat inside it briefly to rest safely.")],
-      6: [f("Elemental Gift", "Gain resistance to your genie kind's damage type, and later a flying speed.")],
-      10: [f("Sanctuary Vessel", "Bring allies into your vessel with you to rest.")],
-      14: [f("Limited Wish", "Once, duplicate a powerful spell effect using your vessel's magic.")],
-    },
-    "Great Old One": {
-      3: [f("Awakened Mind", "Telepathically communicate with creatures you can see nearby.")],
-      6: [f("Entropic Ward", "Impose disadvantage on an attack against you, gaining advantage on your next attack if it still hits.")],
-      10: [f("Thought Shield", "Resistance to Psychic damage, and attackers who read your thoughts take damage back.")],
-      14: [f("Create Thrall", "Permanently charm an incapacitated humanoid, letting you communicate telepathically with it.")],
-    },
-    "Hexblade": {
-      3: [f("Hexblade's Curse & Hex Warrior", "Curse a creature for extra damage and easier critical hits against it, and use Charisma for weapon attacks.")],
-      6: [f("Accursed Specter", "Animate a slain humanoid's spirit into a temporary spectral minion.")],
-      10: [f("Armor of Hexes", "An attack against you by your cursed target may simply miss outright.")],
-      14: [f("Master of Hexes", "When your cursed target dies, move the curse to a new nearby creature for free.")],
-    },
-    "Undead": {
-      3: [f("Form of Dread", "Transform to gain resistance to damage and frighten nearby creatures.")],
-      6: [f("Grave Touched", "You don't need to breathe or eat, and are harder to detect as undead or frightened.")],
-      10: [f("Mortal Husk", "Your Form of Dread also lets you ignore a killing blow briefly.")],
-      14: [f("Astral Arms", "Manifest ghostly arms to grapple, shove, or attack at range.")],
-    },
-    "Undying": {
-      3: [f("Among the Dead", "Undead have a harder time targeting you, and you learn the Spare the Dying cantrip.")],
-      6: [f("Defy Death", "Regain hit points when you succeed a death saving throw, and advantage on Constitution checks against disease and poison.")],
-      10: [f("Undying Nature", "You don't need to eat, drink, breathe, or sleep, and age extremely slowly.")],
-      14: [f("Indestructible Life", "Regain a decent number of hit points as a bonus action, or patch up a lost limb.")],
-    },
-    // Added 2026-09-21 from Arcana Unleashed - see vault-map.md for
-    // sourcing caveats. UPDATE 2026-10-12: re-researched against
-    // dungeonmister.com's optimisation guide (citing the book's final,
-    // post-playtest wording) - the original level 6/10 names and effects
-    // below were swapped/guessed wrong, now corrected: level 6 is
-    // "Vestige Power" (not "Vestige Recovery") and level 10 is "Vestige
-    // Recovery" (not "Aura of Power"). Still a secondary-source paraphrase,
-    // not verbatim book text.
-    "Vestige Patron": {
-      3: [
-        f("Vestige Companion", "Your patron manifests a spectral companion (Celestial, Fiend, or Undead in nature, your choice) that fights alongside you, using your Charisma modifier and Proficiency Bonus for its attacks, and that you can command to use its own limited Divine Power once per Long Rest."),
-        f("Vestige Spells", "You always have certain extra spells prepared, drawn from one Cleric domain of your choice (Life, Light, Trickery, or War), scaling as you gain Warlock levels."),
-      ],
-      6: [f("Vestige Power", "You can command your companion to use its bonus-action power more often, and while it's within 30 feet of you, you share its damage resistance.")],
-      10: [f("Vestige Recovery", "Once per Long Rest, if your companion would be reduced to 0 hit points, it instead fully recovers, helping it last through an encounter instead of being destroyed.")],
-      14: [f("Semblance of Life", "Once per Long Rest with no action required, your Vestige Companion transforms into a more powerful spirit for about an hour, granting you a burst of temporary hit points and letting it cast a spell you have prepared through it.")],
-    },
   },
   "Wizard": {
-    "Bladesinging": {
-      2: [f("Training in War and Song & Bladesong", "Gain a weapon and light armor proficiency, and a bonus-action stance that boosts your AC, speed, and concentration while unarmored.")],
-      6: [f("Extra Attack", "You can attack twice, instead of once, whenever you take the Attack action on your turn.")],
-      10: [f("Song of Defense", "Spend a spell slot to reduce damage you take, while your Bladesong is active.")],
-      14: [f("Song of Victory", "Add your Intelligence modifier to your melee damage while your Bladesong is active.")],
-    },
-    "Chronurgy": {
-      2: [f("Chronal Shift & Temporal Awareness", "Force a creature to reroll a d20, and add your Intelligence modifier to your initiative.")],
-      6: [f("Momentary Stasis", "Briefly freeze a creature in time so it can't take actions or move.")],
-      10: [f("Arcane Abeyance", "Store a spell inside an object, to be triggered later.")],
-      14: [f("Convergent Future", "Choose the result of a roll instead of leaving it to chance, a limited number of times.")],
-    },
-    "Graviturgy": {
-      2: [f("Adjust Density & Gravity Sense", "Change a creature or object's weight, and sense strong gravitational fields nearby.")],
-      6: [f("Gravity Well", "Pull a creature affected by your spell toward the point it was targeted from.")],
-      10: [f("Violent Attraction", "A creature damaged by your spell can be yanked toward or away from a point you choose.")],
-      14: [f("Event Horizon", "Create a zone of intense gravity that pulls creatures in and reduces their speed.")],
-    },
-    "Lore Mastery": {
-      2: [f("Arcane Insight", "Gain an extra tool or skill proficiency tied to lore, and identify magic effects more easily.")],
-      6: [f("Master of Lore", "Briefly gain expertise on a check tied to a spell you know.")],
-      10: [f("Spell Secrets", "Learn a spell from a school other than your specialty at no extra cost.")],
-      14: [f("Reveal the Weakness", "Use your reaction to grant an ally an edge in a fight after identifying a foe's traits.")],
-    },
-    "Order of Scribes": {
-      2: [f("Wizardly Quill & Awakened Spellbook", "A magic quill that copies spells quickly and cleanly, and a spellbook that can change the damage type of a spell you cast from it.")],
-      6: [f("Manifest Mind", "Project a floating, invisible spectral mind to cast spells through at a distance.")],
-      10: [f("Master Scrivener", "Temporarily copy a spell from your spellbook into a scroll for another creature to use.")],
-      14: [f("One with the Word", "Reduce damage you take by expending a prepared spell instead.")],
-    },
-    "School of Abjuration": {
-      2: [f("Abjuration Savant & Arcane Ward", "Copy abjuration spells into your book cheaply, and gain a magical shield of hit points that recharges when you cast abjuration spells.")],
-      6: [f("Projected Ward", "Your Arcane Ward can protect a nearby creature instead of just yourself.")],
-      10: [f("Improved Abjuration", "Add your proficiency bonus a second time to certain abjuration spell checks.")],
-      14: [f("Spell Resistance", "Advantage on saving throws against spells, and resistance to damage from spells.")],
-    },
-    "School of Conjuration": {
-      2: [f("Conjuration Savant & Minor Conjuration", "Copy conjuration spells into your book cheaply, and conjure a small harmless object out of thin air.")],
-      6: [f("Benign Transposition", "Teleport a short distance, or swap places with a willing creature you conjured.")],
-      10: [f("Focused Conjuration", "Your conjured creatures and objects hold together a little better under strain.")],
-      14: [f("Durable Summons", "Creatures you summon arrive with extra temporary hit points.")],
-    },
-    "School of Divination": {
-      2: [f("Divination Savant & Portent", "Copy divination spells into your book cheaply, and roll two d20s each day to replace any roll made by you or a creature you can see.")],
-      6: [f("Expert Divination", "Casting a divination spell of 2nd level or higher refunds you a lower-level spell slot.")],
-      10: [f("The Third Eye", "Gain darkvision, read any language, see invisible creatures, or see in the dark, at will.")],
-      14: [f("Greater Portent", "Roll three Portent dice each day instead of two.")],
-    },
-    "School of Enchantment": {
-      2: [f("Enchantment Savant & Hypnotic Gaze", "Copy enchantment spells into your book cheaply, and briefly incapacitate a creature by locking eyes with it.")],
-      6: [f("Instinctive Charm", "Redirect an attack against you onto the nearest other creature instead.")],
-      10: [f("Split Enchantment", "Your single-target enchantment spells can affect one additional target.")],
-      14: [f("Alter Memories", "A creature you charm can be made to forget time spent with you, or you gain advantage influencing it.")],
-    },
     "School of Evocation": {
       2: [f("Evocation Savant & Sculpt Spells", "Copy evocation spells into your book cheaply, and protect allies from your own damaging spell areas.")],
       6: [f("Potent Cantrip", "Creatures that succeed on a save against your cantrips still take half damage.")],
       10: [f("Empowered Evocation", "Add your Intelligence modifier to the damage of one evocation spell you cast.")],
       14: [f("Overchannel", "Deal maximum damage with a lower-level spell, at the risk of hurting yourself if repeated.")],
-    },
-    "School of Illusion": {
-      2: [f("Illusion Savant & Improved Minor Illusion", "Copy illusion spells into your book cheaply, and your Minor Illusion cantrip can create sound and image together.")],
-      6: [f("Malleable Illusions", "Change the nature of an illusion spell you've already cast.")],
-      10: [f("Illusory Self", "Turn what would be a hit into a miss by revealing a decoy image of yourself.")],
-      14: [f("Illusory Reality", "Make one inanimate, illusory object from your illusion spell briefly real.")],
-    },
-    "School of Necromancy": {
-      2: [f("Necromancy Savant & Grim Harvest", "Copy necromancy spells into your book cheaply, and regain hit points when you kill a creature with a spell.")],
-      6: [f("Undead Thralls", "Undead you animate with Animate Dead are tougher and hit harder than usual.")],
-      10: [f("Inured to Undeath", "Resistance to Necrotic damage, and your hit point maximum can't be reduced.")],
-      14: [f("Command Undead", "Take control of an undead creature instead of merely turning it.")],
-    },
-    "School of Transmutation": {
-      2: [f("Transmutation Savant & Minor Alchemy", "Copy transmutation spells into your book cheaply, and temporarily change one material into another.")],
-      6: [f("Transmuter's Stone", "Create a magic stone granting darkvision, speed, resistance, or better saves to whoever holds it.")],
-      10: [f("Shapechanger", "Cast Polymorph on yourself without a spell slot, once per Short or Long Rest.")],
-      14: [f("Master Transmuter", "Destroy your Transmuter's Stone for a powerful one-time effect, such as removing a curse or restoring youth.")],
-    },
-    "War Magic": {
-      2: [f("Arcane Deflection & Tactical Wit", "Use your reaction to impose a penalty on an attack or boost your own saving throw, and add your Intelligence modifier to initiative.")],
-      6: [f("Power Surge", "Store extra spell energy after casting a spell, to unleash later as bonus damage.")],
-      10: [f("Durable Magic", "Gain a bonus to AC and saving throws while concentrating on a spell.")],
-      14: [f("Deflecting Shroud", "When you deflect an attack, nearby enemies also take Force damage.")],
     },
   },
 };
@@ -3959,8 +2898,18 @@ function getAsiLevels(className) {
 // (5e's fixed "take the average" rule: half the die rounded up, plus 1,
 // i.e. floor(die/2)+1 - e.g. a d10 fighter averages 6 HP/level before CON).
 const HIT_DICE = {
-  Artificer: 8, Barbarian: 12, Bard: 8, Cleric: 8, Druid: 8, Fighter: 10,
-  Monk: 8, Paladin: 10, Ranger: 10, Rogue: 8, Sorcerer: 6, Warlock: 8, Wizard: 6,
+  Barbarian: 12,
+  Bard: 8,
+  Cleric: 8,
+  Druid: 8,
+  Fighter: 10,
+  Monk: 8,
+  Paladin: 10,
+  Ranger: 10,
+  Rogue: 8,
+  Sorcerer: 6,
+  Warlock: 8,
+  Wizard: 6,
 };
 // Per-class Primary Ability (display text only, not used in any
 // calculation) and Saving Throw Proficiencies (the two abilities every
@@ -3972,7 +2921,6 @@ const HIT_DICE = {
 // Throws list on the Abilities page. Same "best-effort built-in table"
 // convention as HIT_DICE/BACKGROUND_DATA_2024 above.
 const CLASS_PRIMARY_ABILITY = {
-  Artificer: "Intelligence",
   Barbarian: "Strength",
   Bard: "Charisma",
   Cleric: "Wisdom",
@@ -3987,7 +2935,6 @@ const CLASS_PRIMARY_ABILITY = {
   Wizard: "Intelligence",
 };
 const CLASS_SAVING_THROWS = {
-  Artificer: ["CON", "INT"],
   Barbarian: ["STR", "CON"],
   Bard: ["DEX", "CHA"],
   Cleric: ["WIS", "CHA"],
@@ -4018,7 +2965,6 @@ const CLASS_SAVING_THROWS = {
 // Order) - those are layered on separately via CHOICE_PROFICIENCY_GRANTS
 // below, not baked in here.
 const CLASS_ARMOR_PROFICIENCIES = {
-  Artificer: ["Light Armor", "Medium Armor", "Shields"],
   Barbarian: ["Light Armor", "Medium Armor", "Shields"],
   Bard: ["Light Armor"],
   Cleric: ["Light Armor", "Medium Armor", "Shields"],
@@ -4033,7 +2979,6 @@ const CLASS_ARMOR_PROFICIENCIES = {
   Wizard: [],
 };
 const CLASS_WEAPON_PROFICIENCIES = {
-  Artificer: ["Simple Weapons"],
   Barbarian: ["Simple Weapons", "Martial Weapons"],
   Bard: ["Simple Weapons", "Hand Crossbows", "Longswords", "Rapiers", "Shortswords"],
   Cleric: ["Simple Weapons"],
@@ -4048,7 +2993,6 @@ const CLASS_WEAPON_PROFICIENCIES = {
   Wizard: ["Daggers", "Darts", "Slings", "Quarterstaffs", "Light Crossbows"],
 };
 const CLASS_TOOL_PROFICIENCIES = {
-  Artificer: ["Thieves' Tools", "Tinker's Tools", "One kind of Artisan's Tools (your choice)"],
   Bard: ["Three Musical Instruments (your choice)"],
   Druid: ["Herbalism Kit"],
   Monk: ["One Artisan's Tool or Musical Instrument (your choice)"],
@@ -4066,11 +3010,6 @@ const CLASS_TOOL_PROFICIENCIES = {
 // (smith's/brewer's/mason's), handled separately below via the "tool
 // proficiency" FEATURE_CHOICE_DEFS entry, not listed here as a fixed grant.
 const RACE_PROFICIENCIES = {
-  "Astral Elf": { weapons: ["Longsword", "Shortsword", "Shortbow", "Longbow"] },
-  "Hill Dwarf": { weapons: ["Battleaxe", "Handaxe", "Light Hammer", "Warhammer"] },
-  "Mountain Dwarf": { armor: ["Light Armor", "Medium Armor"], weapons: ["Battleaxe", "Handaxe", "Light Hammer", "Warhammer"] },
-  Giff: { weapons: ["Firearms (or two Martial Weapons of your choice)"] },
-  Githyanki: { armor: ["Light Armor", "Medium Armor"], weapons: ["Shortsword", "Longsword"] },
 };
 // A few classes grant an EXTRA armor/weapon proficiency only via a
 // 1st-level pick rather than unconditionally - keyed by the granting
@@ -4093,22 +3032,14 @@ const CHOICE_PROFICIENCY_GRANTS = {
 // (59 races are defined in RACE_TRAITS above) - same "best-effort draft"
 // caveat as this file's other hand-compiled tables.
 const RACE_LANGUAGES = {
-  Dwarf: ["Dwarvish"], "Hill Dwarf": ["Dwarvish"], "Mountain Dwarf": ["Dwarvish"], Duergar: ["Dwarvish", "Undercommon"],
-  Elf: ["Elvish"], Eladrin: ["Elvish"], "Astral Elf": ["Elvish"], "Sea Elf": ["Elvish", "Aquan"],
-  Gnome: ["Gnomish"], "Deep Gnome": ["Gnomish", "Undercommon"],
+  Dwarf: ["Dwarvish"],
+  Elf: ["Elvish"],
+  Gnome: ["Gnomish"],
   Halfling: ["Halfling"],
-  Orc: ["Orc"], "Half-Orc": ["Orc"],
-  Goblin: ["Goblin"], Hobgoblin: ["Goblin"], Bugbear: ["Goblin"],
-  Dragonborn: ["Draconic"], Kobold: ["Draconic"], Lizardfolk: ["Draconic"],
-  Githyanki: ["Gith"], Githzerai: ["Gith"],
-  Firbolg: ["Giant", "Elvish"],
+  Orc: ["Orc"],
+  Dragonborn: ["Draconic"],
   Goliath: ["Giant"],
-  Triton: ["Primordial"],
-  Genasi: ["Primordial"],
-  "Yuan-Ti Pureblood": ["Abyssal", "Draconic"],
-  Locathah: ["Aquan"],
   Tiefling: ["Infernal"],
-  Aasimar: ["Celestial"],
 };
 // ---- Feat-granted proficiencies (best-effort, generic text scan) ----
 // Feats are the most open-ended source of new proficiencies - a real Feat
@@ -4309,7 +3240,6 @@ function computeAutomaticProficiencies(fm, abFm, featuresList) {
 // collectFeaturesUpToLevel. Same "written fresh in our own words, not
 // quoted from any sourcebook" convention as RACE_DESCRIPTIONS above.
 const CLASS_DESCRIPTIONS = {
-  Artificer: "Inventive spellcasters who weave magic into gadgets and gear, turning mundane tools into infused items and magical constructs.",
   Barbarian: "Furious warriors who channel raw, primal rage into devastating strength and near-unstoppable endurance in battle.",
   Bard: "Charismatic performers who weave music and magic together, inspiring allies and unraveling foes with equal skill.",
   Cleric: "Devoted champions of a deity or divine ideal, wielding prayer and holy magic to heal, protect, and smite in their god's name.",
@@ -4651,23 +3581,6 @@ const DEFAULT_CHARACTER_BODY_LINES = [
   "",
   "---",
   "",
-  "# Backstory",
-  "Write the character's backstory here.",
-  "",
-  "# DnD Beyond",
-  "<iframe src=\"\" allow=\"fullscreen\" allowfullscreen=\"\" style=\"height: 100%; width: 100%; aspect-ratio: 1 / 1;\"></iframe>",
-  "---",
-  "",
-  "# Life Events",
-  "",
-  "- ",
-  "",
-  "# C\u00edle",
-  "- ",
-  "",
-  "# Pl\u00e1ny DM",
-  "- ",
-  "",
 ];
 
 const DEFAULT_CHARACTER_BODY = DEFAULT_CHARACTER_BODY_LINES.join("\n");
@@ -4738,9 +3651,9 @@ const PASSIVE_SENSE_INFO = {
 // "choose 2, any skill" - see getClassSkillAllowance - so the cap still
 // does its job instead of leaving skills totally uncapped.
 const CLASS_SKILL_CHOICES = {
-  Artificer: { count: 2, skills: ["Arcana", "History", "Investigation", "Medicine", "Nature", "Perception", "Sleight of Hand"] },
   Barbarian: { count: 2, skills: ["Animal Handling", "Athletics", "Intimidation", "Nature", "Perception", "Survival"] },
-  Bard: { count: 3, skills: STANDARD_SKILLS.map((s) => s.name) }, // "Choose any three."
+  Bard: { count: 3, skills: STANDARD_SKILLS.map((s) => s.name) },
+  // "Choose any three."
   Cleric: { count: 2, skills: ["History", "Insight", "Medicine", "Persuasion", "Religion"] },
   Druid: { count: 2, skills: ["Arcana", "Animal Handling", "Insight", "Medicine", "Nature", "Perception", "Religion", "Survival"] },
   Fighter: { count: 2, skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"] },
@@ -4779,21 +3692,9 @@ function getClassSkillAllowance(className) {
 // RACE_SPEED_DATA, etc.) - worth a spot-check against the actual book.
 const BACKGROUND_DATA_2024 = {
   "Acolyte": { abilities: ["int", "wis", "cha"], skills: ["Insight", "Religion"], tool: "Calligrapher's Supplies", feat: "Magic Initiate" },
-  "Artisan": { abilities: ["str", "dex", "int"], skills: ["Investigation", "Persuasion"], tool: "Artisan's Tools (one kind)", feat: "Crafter" },
-  "Charlatan": { abilities: ["dex", "con", "cha"], skills: ["Deception", "Sleight of Hand"], tool: "Forgery Kit", feat: "Skilled" },
   "Criminal": { abilities: ["dex", "con", "int"], skills: ["Sleight of Hand", "Stealth"], tool: "Thieves' Tools", feat: "Alert" },
-  "Entertainer": { abilities: ["str", "dex", "cha"], skills: ["Acrobatics", "Performance"], tool: "Musical Instrument", feat: "Musician" },
-  "Farmer": { abilities: ["str", "con", "wis"], skills: ["Animal Handling", "Nature"], tool: "Carpenter's Tools", feat: "Tough" },
-  "Guard": { abilities: ["str", "int", "wis"], skills: ["Athletics", "Perception"], tool: "Gaming Set", feat: "Alert" },
-  "Guide": { abilities: ["dex", "con", "wis"], skills: ["Stealth", "Survival"], tool: "Cartographer's Tools", feat: "Magic Initiate" },
-  "Hermit": { abilities: ["con", "wis", "cha"], skills: ["Medicine", "Religion"], tool: "Herbalism Kit", feat: "Healer" },
-  "Merchant": { abilities: ["con", "int", "cha"], skills: ["Animal Handling", "Persuasion"], tool: "Navigator's Tools", feat: "Lucky" },
-  "Noble": { abilities: ["str", "int", "cha"], skills: ["History", "Persuasion"], tool: "Gaming Set", feat: "Skilled" },
   "Sage": { abilities: ["con", "int", "wis"], skills: ["Arcana", "History"], tool: "Calligrapher's Supplies", feat: "Magic Initiate" },
-  "Sailor": { abilities: ["str", "dex", "wis"], skills: ["Acrobatics", "Perception"], tool: "Navigator's Tools", feat: "Tavern Brawler" },
-  "Scribe": { abilities: ["dex", "int", "wis"], skills: ["Investigation", "Perception"], tool: "Calligrapher's Supplies", feat: "Skilled" },
   "Soldier": { abilities: ["str", "dex", "con"], skills: ["Athletics", "Intimidation"], tool: "Gaming Set", feat: "Savage Attacker" },
-  "Wayfarer": { abilities: ["dex", "wis", "cha"], skills: ["Insight", "Stealth"], tool: "Thieves' Tools", feat: "Lucky" },
 };
 const BACKGROUND_OPTIONS = [...Object.keys(BACKGROUND_DATA_2024), "Custom"];
 // Looks up a background's mechanical data, checking the built-in
@@ -5198,108 +4099,6 @@ const SPELL_SLOT_TABLES = {
       "5": 2
     }
   },
-  "artificer": {
-    "1": {
-      "1": 2
-    },
-    "2": {
-      "1": 2
-    },
-    "3": {
-      "1": 3
-    },
-    "4": {
-      "1": 3
-    },
-    "5": {
-      "1": 4,
-      "2": 2
-    },
-    "6": {
-      "1": 4,
-      "2": 2
-    },
-    "7": {
-      "1": 4,
-      "2": 3
-    },
-    "8": {
-      "1": 4,
-      "2": 3
-    },
-    "9": {
-      "1": 4,
-      "2": 3,
-      "3": 2
-    },
-    "10": {
-      "1": 4,
-      "2": 3,
-      "3": 2
-    },
-    "11": {
-      "1": 4,
-      "2": 3,
-      "3": 3
-    },
-    "12": {
-      "1": 4,
-      "2": 3,
-      "3": 3
-    },
-    "13": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 1
-    },
-    "14": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 1
-    },
-    "15": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 2
-    },
-    "16": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 2
-    },
-    "17": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 3,
-      "5": 1
-    },
-    "18": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 3,
-      "5": 1
-    },
-    "19": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 3,
-      "5": 2
-    },
-    "20": {
-      "1": 4,
-      "2": 3,
-      "3": 3,
-      "4": 3,
-      "5": 2
-    }
-  },
   "pact": {
     "1": {
       "1": 1
@@ -5443,7 +4242,7 @@ const SPELL_SLOT_TABLES = {
       "3": 3,
       "4": 1
     }
-  }
+  },
 };
 
 // ---- Per-character companion file helpers ----
@@ -7550,7 +6349,7 @@ function isTemplateNote(app, file) {
 // there's normally no way to tell where on disk it came from, so every
 // portrait pick used to be treated as an external upload and duplicated
 // into the vault via vault.createBinary(), even when the user picked an
-// image that was already sitting right there in e.g. Kompendium/. Obsidian
+// image that was already sitting right there in e.g. Compendium/. Obsidian
 // runs on Electron though, which non-standardly stamps a real absolute
 // filesystem path onto that same File object as `.path` - so on desktop
 // this checks that path against the vault's own on-disk location
@@ -10582,9 +9381,13 @@ class ActionsTracker extends MarkdownRenderChild {
 
 
 const CLASS_PROGRESSION = {
-  bard: "full", cleric: "full", druid: "full", sorcerer: "full", wizard: "full",
-  paladin: "half", ranger: "half",
-  artificer: "artificer",
+  bard: "full",
+  cleric: "full",
+  druid: "full",
+  sorcerer: "full",
+  wizard: "full",
+  paladin: "half",
+  ranger: "half",
   warlock: "pact",
 };
 const THIRD_CASTER_SUBCLASSES = ["eldritch knight", "arcane trickster"];
@@ -10593,9 +9396,14 @@ const THIRD_CASTER_SUBCLASSES = ["eldritch knight", "arcane trickster"];
 // regardless of their base class (Fighter/Rogue) - handled as a special
 // case wherever this table is consulted instead of listed here.
 const SPELLCASTING_ABILITY_BY_CLASS = {
-  wizard: "int", artificer: "int",
-  cleric: "wis", druid: "wis", ranger: "wis",
-  bard: "cha", paladin: "cha", sorcerer: "cha", warlock: "cha",
+  wizard: "int",
+  cleric: "wis",
+  druid: "wis",
+  ranger: "wis",
+  bard: "cha",
+  paladin: "cha",
+  sorcerer: "cha",
+  warlock: "cha",
 };
 
 class SpellsTracker extends MarkdownRenderChild {
@@ -11587,30 +10395,38 @@ function renderLinkedNoteList(app, containerEl, referenceFilePath, opts) {
   };
 }
 
-// Czech ability names as they appear in a #Feat note's own
-// "**Zvýšení vlastnosti:**" line (see generate_feats.py / the Rysy (Feats)
-// library) - used to figure out which abilities a given feat's ASI can
-// apply to.
-const ASI_ABILITY_CZ = { "Síla": "str", "Obratnost": "dex", "Odolnost": "con", "Inteligence": "int", "Moudrost": "wis", "Charisma": "cha" };
+// Ability names as they can appear in a #Feat note's own "**Ability Score
+// Increase:**" line (see generate_feats.py / the Feats library) - used to
+// figure out which abilities a given feat's ASI can apply to. Every ability
+// key maps to BOTH its English name and its Czech one, since the official
+// feat library this plugin was originally built against writes this line
+// in Czech ("Zvýšení vlastnosti") - homebrew feats created in English still
+// need to parse correctly against notes from that library, so both forms
+// are always checked rather than just the one the current UI writes.
+const ASI_ABILITY_NAMES = {
+  str: ["Strength", "Síla"],
+  dex: ["Dexterity", "Obratnost"],
+  con: ["Constitution", "Odolnost"],
+  int: ["Intelligence", "Inteligence"],
+  wis: ["Wisdom", "Moudrost"],
+  cha: ["Charisma"],
+};
 
-// Parses a feat's free-text "Zvýšení vlastnosti" line (e.g. "+1 Charisma
-// (max. 20)", "+1 Sila, Obratnost nebo Odolnost (max. 20)", "+1 k
-// libovolné vlastnosti (max. 30)") into a plain list of ability keys the
-// Level Up modal's feat picker can offer a +1 to, plus the score cap that
-// applies (20 for a General feat, 30 for an Epic Boon). Not all feats name
-// specific abilities (e.g. Resilient: "an ability score you lack saving
-// throw proficiency in") - those fall back to offering every ability
-// rather than silently dropping the increase.
+// Parses a feat's free-text "Ability Score Increase" line (e.g. "+1
+// Charisma (max. 20)", "+1 Strength, Dexterity, or Constitution (max. 20)",
+// "+1 to any one ability of your choice (max. 30)") into a plain list of
+// ability keys the Level Up modal's feat picker can offer a +1 to, plus the
+// score cap that applies (20 for a General feat, 30 for an Epic Boon). Not
+// all feats name specific abilities (e.g. Resilient: "an ability score you
+// lack saving throw proficiency in") - those fall back to offering every
+// ability rather than silently dropping the increase.
 function parseFeatAsiOptions(asiText) {
   const text = String(asiText || "");
   if (!text) return { abilities: [], max: 20 };
   const max = /max\.\s*30/.test(text) ? 30 : 20;
-  const allAbilities = Object.values(ASI_ABILITY_CZ);
-  if (/libovoln/i.test(text)) return { abilities: allAbilities, max };
-  const found = allAbilities.filter((key) => {
-    const cz = Object.keys(ASI_ABILITY_CZ).find((k) => ASI_ABILITY_CZ[k] === key);
-    return text.includes(cz);
-  });
+  const allAbilities = Object.keys(ASI_ABILITY_NAMES);
+  if (/\bany\b/i.test(text) || /libovoln/i.test(text)) return { abilities: allAbilities, max };
+  const found = allAbilities.filter((key) => ASI_ABILITY_NAMES[key].some((name) => text.includes(name)));
   return { abilities: found.length ? found : allAbilities, max };
 }
 
@@ -11812,14 +10628,14 @@ function buildItemWikilink(file) {
 // Cleric/Druid/Artificer (Paladin has no cantrips at all) get both a
 // cantrip picker AND a leveled "prepared today" picker in the same section.
 const SPELLS_KNOWN_CLASSES = ["Bard", "Ranger", "Sorcerer", "Warlock", "Wizard"];
-const CANTRIP_CASTERS = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard", "Artificer"];
+const CANTRIP_CASTERS = ["Bard","Cleric","Druid","Sorcerer","Warlock","Wizard"];
 // Casters that prepare their leveled spells from their whole class list
 // rather than choosing a fixed "known" subset. There's no per-spell class
 // tag in this vault (see getAllSpellNotes) to know exactly which notes
 // belong to which class's real list, so the picker offered to these
 // classes (see spellChoiceModeFor's "prepare" mode) is necessarily a
 // best-effort filtered list (SPELL_CLASS_LIST), not a rules-accurate one.
-const FULL_LIST_PREPARE_CLASSES = ["Cleric", "Druid", "Paladin", "Artificer"];
+const FULL_LIST_PREPARE_CLASSES = ["Cleric","Druid","Paladin"];
 
 // "known" - the wizard's Spells page shows a full cantrips+leveled picker
 //   for a permanently-learned list (Bard/Ranger/Sorcerer/Warlock/Wizard,
@@ -11891,40 +10707,33 @@ function wireSpellLevelAccordion(pairs) {
 // effort, treat as a draft" caveat as the rest of this file's built-in
 // game data (SUBCLASS_LEVEL_FEATURES, STARTER_PACKS, etc.).
 const CANTRIP_CLASS_LIST = {
-  "Acid Splash": ["Sorcerer", "Wizard", "Artificer"],
-  "Blade Ward": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Dancing Lights": ["Bard", "Sorcerer", "Wizard", "Artificer"],
+  "Acid Splash": ["Sorcerer", "Wizard"],
+  "Dancing Lights": ["Bard", "Sorcerer", "Wizard"],
   "Druidcraft": ["Druid"],
   "Eldritch Blast": ["Warlock"],
-  "Elementalism": ["Druid", "Sorcerer", "Wizard", "Artificer"],
-  "Fire Bolt": ["Sorcerer", "Wizard", "Artificer"],
-  "Friends": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Guidance": ["Cleric", "Druid", "Artificer"],
+  "Elementalism": ["Druid", "Sorcerer", "Wizard"],
+  "Fire Bolt": ["Sorcerer", "Wizard"],
+  "Guidance": ["Cleric", "Druid"],
   "Chill Touch": ["Sorcerer", "Warlock", "Wizard"],
-  "Light": ["Bard", "Cleric", "Sorcerer", "Wizard", "Artificer"],
-  "Mage Hand": ["Bard", "Sorcerer", "Warlock", "Wizard", "Artificer"],
-  "Mending": ["Bard", "Cleric", "Druid", "Sorcerer", "Wizard", "Artificer"],
-  "Message": ["Bard", "Druid", "Sorcerer", "Wizard", "Artificer"],
-  "Mind Sliver": ["Sorcerer", "Warlock", "Wizard"],
+  "Light": ["Bard", "Cleric", "Sorcerer", "Wizard"],
+  "Mage Hand": ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  "Mending": ["Bard", "Cleric", "Druid", "Sorcerer", "Wizard"],
+  "Message": ["Bard", "Druid", "Sorcerer", "Wizard"],
   "Minor Illusion": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Poison Spray": ["Druid", "Sorcerer", "Warlock", "Wizard", "Artificer"],
-  "Prestidigitation": ["Bard", "Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "Poison Spray": ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  "Prestidigitation": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Produce Flame": ["Druid"],
-  "Ray of Frost": ["Sorcerer", "Wizard", "Artificer"],
-  "Resistance": ["Cleric", "Druid", "Artificer"],
+  "Ray of Frost": ["Sorcerer", "Wizard"],
+  "Resistance": ["Cleric", "Druid"],
   "Sacred Flame": ["Cleric"],
   "Shillelagh": ["Druid"],
-  "Shocking Grasp": ["Sorcerer", "Wizard", "Artificer"],
+  "Shocking Grasp": ["Sorcerer", "Wizard"],
   "Sorcerous Burst": ["Sorcerer"],
-  "Spare the Dying": ["Cleric", "Druid", "Artificer"],
+  "Spare the Dying": ["Cleric", "Druid"],
   "Starry Wisp": ["Bard", "Druid"],
   "Thaumaturgy": ["Cleric"],
-  "Thorn Whip": ["Druid", "Artificer"],
-  "Thunderclap": ["Bard", "Druid", "Sorcerer", "Warlock", "Wizard", "Artificer"],
-  "Toll the Dead": ["Cleric", "Warlock", "Wizard"],
-  "True Strike": ["Bard", "Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "True Strike": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Vicious Mockery": ["Bard"],
-  "Word of Radiance": ["Cleric"],
 };
 
 // True if `className` can actually learn a cantrip named `spellName`, per
@@ -11954,124 +10763,89 @@ function cantripAllowedForClass(spellName, className) {
 // spell this vault still has tagged #Spell) is left unfiltered rather than
 // hidden from everyone, same as cantrips.
 const SPELL_CLASS_LIST = {
-  "Aid": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
-  "Alarm": ["Ranger", "Wizard", "Artificer"],
-  "Alter Self": ["Sorcerer", "Wizard", "Artificer"],
-  "Alustriel's Mooncloak": ["Bard", "Druid", "Ranger", "Wizard"],
+  "Aid": ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
+  "Alarm": ["Ranger", "Wizard"],
+  "Alter Self": ["Sorcerer", "Wizard"],
   "Animal Friendship": ["Bard", "Druid", "Ranger"],
   "Animal Messenger": ["Bard", "Druid", "Ranger"],
   "Animal Shapes": ["Druid"],
   "Animate Dead": ["Cleric", "Wizard"],
-  "Animate Objects": ["Bard", "Sorcerer", "Wizard", "Artificer"],
+  "Animate Objects": ["Bard", "Sorcerer", "Wizard"],
   "Antilife Shell": ["Druid"],
   "Antimagic Field": ["Cleric", "Wizard"],
   "Antipathy/Sympathy": ["Bard", "Druid", "Wizard"],
-  "Arcane Eye": ["Wizard", "Artificer"],
-  "Arcane Gate": ["Sorcerer", "Warlock", "Wizard"],
-  "Arcane Lock": ["Wizard", "Artificer"],
-  "Arcane Vigor": ["Sorcerer", "Wizard", "Artificer"],
-  "Armor of Agathys": ["Warlock"],
-  "Arms of Hadar": ["Warlock"],
-  "Astral Flood": ["Bard", "Cleric", "Sorcerer", "Warlock", "Wizard"],
+  "Arcane Eye": ["Wizard"],
+  "Arcane Lock": ["Wizard"],
   "Astral Projection": ["Cleric", "Warlock", "Wizard"],
   "Augury": ["Cleric", "Druid", "Wizard"],
-  "Aura of Evasion": ["Sorcerer", "Warlock", "Wizard"],
   "Aura of Life": ["Cleric", "Paladin"],
-  "Aura of Purity": ["Cleric", "Paladin"],
-  "Aura of Vitality": ["Cleric", "Druid", "Paladin"],
   "Awaken": ["Bard", "Druid"],
-  "Backlash": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Bane": ["Bard", "Cleric", "Warlock"],
-  "Banishing Smite": ["Paladin"],
   "Banishment": ["Cleric", "Paladin", "Sorcerer", "Warlock", "Wizard"],
   "Barkskin": ["Druid", "Ranger"],
-  "Battle Familiar": ["Druid", "Warlock", "Wizard"],
   "Beacon of Hope": ["Cleric"],
-  "Beast Sense": ["Druid", "Ranger"],
   "Befuddlement": ["Bard", "Druid", "Warlock", "Wizard"],
   "Bestow Curse": ["Bard", "Cleric", "Wizard"],
-  "Bigby's Hand": ["Sorcerer", "Wizard", "Artificer"],
+  "Bigby's Hand": ["Sorcerer", "Wizard"],
   "Blade Barrier": ["Cleric"],
-  "Blade of Disaster": ["Sorcerer", "Warlock", "Wizard"],
   "Bless": ["Cleric", "Paladin"],
   "Blight": ["Druid", "Sorcerer", "Warlock", "Wizard"],
-  "Blinding Smite": ["Paladin"],
   "Blindness/Deafness": ["Bard", "Cleric", "Sorcerer", "Wizard"],
-  "Blink": ["Sorcerer", "Wizard", "Artificer"],
-  "Blur": ["Sorcerer", "Wizard", "Artificer"],
+  "Blink": ["Sorcerer", "Wizard"],
+  "Blur": ["Sorcerer", "Wizard"],
   "Burning Hands": ["Sorcerer", "Wizard"],
-  "Buzzing Bee": ["Druid", "Ranger", "Sorcerer", "Wizard"],
-  "Cacophonic Shield": ["Bard", "Sorcerer", "Wizard"],
   "Call Lightning": ["Druid"],
   "Calm Emotions": ["Bard", "Cleric"],
-  "Catnap": ["Bard", "Sorcerer", "Wizard"],
   "Chain Lightning": ["Sorcerer", "Wizard"],
   "Charm Monster": ["Bard", "Druid", "Sorcerer", "Warlock", "Wizard"],
   "Charm Person": ["Bard", "Druid", "Sorcerer", "Warlock", "Wizard"],
   "Chromatic Orb": ["Sorcerer", "Wizard"],
   "Circle of Death": ["Sorcerer", "Warlock", "Wizard"],
-  "Circle of Power": ["Cleric", "Paladin", "Wizard", "Artificer"],
   "Clairvoyance": ["Bard", "Cleric", "Sorcerer", "Wizard"],
   "Clone": ["Wizard"],
-  "Cloud of Daggers": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Cloudkill": ["Sorcerer", "Wizard"],
   "Color Spray": ["Bard", "Sorcerer", "Wizard"],
   "Command": ["Bard", "Cleric", "Paladin"],
   "Commune": ["Cleric"],
   "Commune with Nature": ["Druid", "Ranger"],
-  "Compelled Duel": ["Paladin"],
   "Comprehend Languages": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Compulsion": ["Bard"],
   "Cone of Cold": ["Druid", "Sorcerer", "Wizard"],
   "Confusion": ["Bard", "Druid", "Sorcerer", "Wizard"],
   "Conjure Animals": ["Druid", "Ranger"],
-  "Conjure Barrage": ["Ranger"],
   "Conjure Celestial": ["Cleric"],
-  "Conjure Constructs": ["Wizard"],
   "Conjure Elemental": ["Druid", "Wizard"],
   "Conjure Fey": ["Druid"],
   "Conjure Minor Elementals": ["Druid", "Wizard"],
-  "Conjure Tools": ["Bard", "Ranger", "Wizard"],
-  "Conjure Volley": ["Ranger"],
   "Conjure Woodland Beings": ["Druid", "Ranger"],
   "Contact Other Plane": ["Warlock", "Wizard"],
   "Contagion": ["Cleric", "Druid"],
   "Contingency": ["Wizard"],
-  "Continual Flame": ["Cleric", "Druid", "Wizard", "Artificer"],
+  "Continual Flame": ["Cleric", "Druid", "Wizard"],
   "Control Water": ["Cleric", "Druid", "Wizard"],
   "Control Weather": ["Cleric", "Druid", "Wizard"],
-  "Cordon of Arrows": ["Ranger"],
   "Counterspell": ["Sorcerer", "Warlock", "Wizard"],
-  "Create Food and Water": ["Cleric", "Paladin", "Artificer"],
+  "Create Food and Water": ["Cleric", "Paladin"],
   "Create or Destroy Water": ["Cleric", "Druid"],
   "Create Undead": ["Cleric", "Warlock", "Wizard"],
-  "Creation": ["Sorcerer", "Wizard", "Artificer"],
-  "Crown of Madness": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Crusader's Mantle": ["Paladin"],
-  "Cure Wounds": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
+  "Creation": ["Sorcerer", "Wizard"],
+  "Cure Wounds": ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
   "Darkness": ["Sorcerer", "Warlock", "Wizard"],
-  "Darkvision": ["Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
+  "Darkvision": ["Druid", "Ranger", "Sorcerer", "Wizard"],
   "Daylight": ["Cleric", "Druid", "Paladin", "Ranger", "Sorcerer"],
-  "Death Armor": ["Sorcerer", "Wizard"],
   "Death Ward": ["Cleric", "Paladin"],
   "Delayed Blast Fireball": ["Sorcerer", "Wizard"],
   "Demiplane": ["Sorcerer", "Warlock", "Wizard"],
-  "Deryan's Helpful Homunculi": ["Cleric", "Wizard"],
-  "Destructive Wave": ["Paladin"],
   "Detect Evil and Good": ["Cleric", "Paladin"],
-  "Detect Magic": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "Detect Magic": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard"],
   "Detect Poison and Disease": ["Cleric", "Druid", "Paladin", "Ranger"],
   "Detect Thoughts": ["Bard", "Sorcerer", "Wizard"],
-  "Detonate": ["Sorcerer", "Warlock", "Wizard"],
   "Dimension Door": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Dirge": ["Bard", "Cleric"],
-  "Disguise Self": ["Bard", "Sorcerer", "Wizard", "Artificer"],
+  "Disguise Self": ["Bard", "Sorcerer", "Wizard"],
   "Disintegrate": ["Sorcerer", "Wizard"],
   "Dispel Evil and Good": ["Cleric", "Paladin"],
-  "Dispel Magic": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard", "Artificer"],
-  "Disruptive Tune": ["Bard", "Sorcerer", "Wizard"],
+  "Dispel Magic": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard"],
   "Dissonant Whispers": ["Bard"],
-  "Distorted Distance": ["Bard", "Warlock", "Wizard"],
   "Divination": ["Cleric", "Druid", "Wizard"],
   "Divine Favor": ["Paladin"],
   "Divine Smite": ["Paladin"],
@@ -12079,34 +10853,24 @@ const SPELL_CLASS_LIST = {
   "Dominate Beast": ["Druid", "Ranger", "Sorcerer"],
   "Dominate Monster": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Dominate Person": ["Bard", "Sorcerer", "Wizard"],
-  "Doomtide": ["Bard", "Cleric", "Warlock"],
-  "Dragon's Breath": ["Sorcerer", "Wizard", "Artificer"],
+  "Dragon's Breath": ["Sorcerer", "Wizard"],
   "Drawmij's Instant Summons": ["Wizard"],
   "Dream": ["Bard", "Warlock", "Wizard"],
-  "Dueling Ground": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard"],
   "Earthquake": ["Cleric", "Druid", "Sorcerer"],
-  "Elemental Weapon": ["Druid", "Paladin", "Ranger", "Artificer"],
-  "Elminster's Effulgent Spheres": ["Druid", "Sorcerer", "Wizard"],
-  "Elminster's Elusion": ["Wizard"],
-  "Enervation": ["Sorcerer", "Warlock", "Wizard"],
-  "Enhance Ability": ["Bard", "Cleric", "Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
-  "Enlarge/Reduce": ["Bard", "Druid", "Sorcerer", "Wizard", "Artificer"],
+  "Enhance Ability": ["Bard", "Cleric", "Druid", "Ranger", "Sorcerer", "Wizard"],
+  "Enlarge/Reduce": ["Bard", "Druid", "Sorcerer", "Wizard"],
   "Ensnaring Strike": ["Ranger"],
   "Entangle": ["Druid", "Ranger"],
   "Enthrall": ["Bard", "Warlock"],
-  "Entrancing Mirrors": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Etherealness": ["Bard", "Cleric", "Sorcerer", "Warlock", "Wizard"],
   "Evard's Black Tentacles": ["Wizard"],
-  "Expeditious Retreat": ["Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "Expeditious Retreat": ["Sorcerer", "Warlock", "Wizard"],
   "Eyebite": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Fabricate": ["Wizard", "Artificer"],
-  "Faerie Fire": ["Bard", "Druid", "Artificer"],
-  "False Life": ["Sorcerer", "Wizard", "Artificer"],
+  "Fabricate": ["Wizard"],
+  "Faerie Fire": ["Bard", "Druid"],
+  "False Life": ["Sorcerer", "Wizard"],
   "Fear": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Feather Fall": ["Bard", "Sorcerer", "Wizard", "Artificer"],
-  "Feign Death": ["Bard", "Cleric", "Druid", "Wizard"],
-  "Feign Interest": ["Wizard"],
-  "Festering Blast": ["Druid", "Sorcerer", "Warlock", "Wizard"],
+  "Feather Fall": ["Bard", "Sorcerer", "Wizard"],
   "Find Familiar": ["Wizard"],
   "Find Steed": ["Paladin"],
   "Find the Path": ["Bard", "Cleric", "Druid"],
@@ -12119,14 +10883,12 @@ const SPELL_CLASS_LIST = {
   "Flame Strike": ["Cleric"],
   "Flaming Sphere": ["Druid", "Sorcerer", "Wizard"],
   "Flesh to Stone": ["Druid", "Sorcerer", "Wizard"],
-  "Fly": ["Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "Fly": ["Sorcerer", "Warlock", "Wizard"],
   "Fog Cloud": ["Druid", "Ranger", "Sorcerer", "Wizard"],
   "Forbiddance": ["Cleric"],
   "Forcecage": ["Bard", "Warlock", "Wizard"],
   "Foresight": ["Bard", "Druid", "Warlock", "Wizard"],
-  "Fount of Moonlight": ["Bard", "Druid"],
-  "Fractured Awareness": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Freedom of Movement": ["Bard", "Cleric", "Druid", "Ranger", "Artificer"],
+  "Freedom of Movement": ["Bard", "Cleric", "Druid", "Ranger"],
   "Gaseous Form": ["Sorcerer", "Warlock", "Wizard"],
   "Gate": ["Cleric", "Sorcerer", "Warlock", "Wizard"],
   "Geas": ["Bard", "Cleric", "Druid", "Paladin", "Wizard"],
@@ -12134,75 +10896,58 @@ const SPELL_CLASS_LIST = {
   "Giant Insect": ["Druid"],
   "Glibness": ["Bard", "Warlock"],
   "Globe of Invulnerability": ["Sorcerer", "Wizard"],
-  "Glyph of Warding": ["Bard", "Cleric", "Wizard", "Artificer"],
+  "Glyph of Warding": ["Bard", "Cleric", "Wizard"],
   "Goodberry": ["Druid", "Ranger"],
-  "Grasping Vine": ["Druid", "Ranger"],
-  "Grave Ground": ["Cleric", "Warlock", "Wizard"],
-  "Grease": ["Sorcerer", "Wizard", "Artificer"],
+  "Grease": ["Sorcerer", "Wizard"],
   "Greater Invisibility": ["Bard", "Sorcerer", "Wizard"],
-  "Greater Restoration": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
+  "Greater Restoration": ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
   "Guardian of Faith": ["Cleric"],
   "Guards and Wards": ["Bard", "Wizard"],
   "Guiding Bolt": ["Cleric"],
   "Gust of Wind": ["Druid", "Ranger", "Sorcerer", "Wizard"],
-  "Hail of Thorns": ["Ranger"],
   "Hallow": ["Cleric"],
   "Hallucinatory Terrain": ["Bard", "Druid", "Warlock", "Wizard"],
   "Harm": ["Cleric"],
-  "Haste": ["Sorcerer", "Wizard", "Artificer"],
+  "Haste": ["Sorcerer", "Wizard"],
   "Heal": ["Cleric", "Druid"],
   "Healing Word": ["Bard", "Cleric", "Druid"],
-  "Heat Metal": ["Bard", "Druid", "Artificer"],
+  "Heat Metal": ["Bard", "Druid"],
   "Hellish Rebuke": ["Warlock"],
   "Heroes' Feast": ["Bard", "Cleric", "Druid"],
   "Heroism": ["Bard", "Paladin"],
   "Hex": ["Warlock"],
-  "Hindsight": ["Wizard"],
   "Hold Monster": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Hold Person": ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"],
   "Holy Aura": ["Cleric"],
-  "Holy Star of Mystra": ["Cleric", "Wizard"],
-  "Homunculus Servant": ["Artificer"],
-  "Hunger of Hadar": ["Warlock"],
   "Hunter's Mark": ["Ranger"],
   "Hypnotic Pattern": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Ice Knife": ["Druid", "Sorcerer", "Wizard"],
   "Ice Storm": ["Druid", "Sorcerer", "Wizard"],
-  "Identify": ["Bard", "Wizard", "Artificer"],
-  "Illusory Dragon": ["Wizard"],
+  "Identify": ["Bard", "Wizard"],
   "Illusory Script": ["Bard", "Warlock", "Wizard"],
   "Imprisonment": ["Warlock", "Wizard"],
   "Incendiary Cloud": ["Druid", "Sorcerer", "Wizard"],
-  "Inflict Doubt": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Inflict Wounds": ["Cleric"],
   "Insect Plague": ["Cleric", "Druid", "Sorcerer"],
-  "Insidious Rhythm": ["Bard"],
-  "Invisibility": ["Bard", "Sorcerer", "Warlock", "Wizard", "Artificer"],
-  "Invulnerability": ["Wizard"],
-  "Iron Body": ["Sorcerer", "Warlock", "Wizard"],
-  "Jallarzi's Storm of Radiance": ["Warlock", "Wizard"],
-  "Jump": ["Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
+  "Invisibility": ["Bard", "Sorcerer", "Warlock", "Wizard"],
+  "Jump": ["Druid", "Ranger", "Sorcerer", "Wizard"],
   "Knock": ["Bard", "Sorcerer", "Wizard"],
-  "Laeral's Silver Lance": ["Cleric", "Sorcerer", "Wizard"],
   "Legend Lore": ["Bard", "Cleric", "Wizard"],
-  "Leomund's Lamentable Belaborment": ["Bard", "Sorcerer", "Wizard"],
-  "Leomund's Secret Chest": ["Wizard", "Artificer"],
+  "Leomund's Secret Chest": ["Wizard"],
   "Leomund's Tiny Hut": ["Bard", "Wizard"],
-  "Lesser Restoration": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
-  "Levitate": ["Sorcerer", "Wizard", "Artificer"],
-  "Lightning Arrow": ["Ranger"],
+  "Lesser Restoration": ["Bard", "Cleric", "Druid", "Paladin", "Ranger"],
+  "Levitate": ["Sorcerer", "Wizard"],
   "Lightning Bolt": ["Sorcerer", "Wizard"],
-  "Lightning Ring": ["Druid", "Sorcerer", "Warlock", "Wizard"],
   "Locate Animals or Plants": ["Bard", "Druid", "Ranger"],
   "Locate Creature": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Wizard"],
   "Locate Object": ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Wizard"],
-  "Longstrider": ["Bard", "Druid", "Ranger", "Wizard", "Artificer"],
+  "Longstrider": ["Bard", "Druid", "Ranger", "Wizard"],
   "Mage Armor": ["Sorcerer", "Wizard"],
   "Magic Circle": ["Cleric", "Paladin", "Warlock", "Wizard"],
   "Magic Jar": ["Wizard"],
   "Magic Missile": ["Sorcerer", "Wizard"],
-  "Magic Mouth": ["Bard", "Wizard", "Artificer"],
-  "Magic Weapon": ["Paladin", "Ranger", "Sorcerer", "Wizard", "Artificer"],
+  "Magic Mouth": ["Bard", "Wizard"],
+  "Magic Weapon": ["Paladin", "Ranger", "Sorcerer", "Wizard"],
   "Major Image": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Mass Cure Wounds": ["Bard", "Cleric", "Druid"],
   "Mass Heal": ["Cleric"],
@@ -12219,46 +10964,39 @@ const SPELL_CLASS_LIST = {
   "Mislead": ["Bard", "Warlock", "Wizard"],
   "Misty Step": ["Sorcerer", "Warlock", "Wizard"],
   "Modify Memory": ["Bard", "Wizard"],
-  "Moment of Prescience": ["Wizard"],
   "Moonbeam": ["Druid"],
-  "Mordenkainen's Faithful Hound": ["Wizard", "Artificer"],
-  "Mordenkainen's Lucubration": ["Wizard"],
+  "Mordenkainen's Faithful Hound": ["Wizard"],
   "Mordenkainen's Magnificent Mansion": ["Bard", "Wizard"],
-  "Mordenkainen's Private Sanctum": ["Wizard", "Artificer"],
+  "Mordenkainen's Private Sanctum": ["Wizard"],
   "Mordenkainen's Sword": ["Bard", "Wizard"],
   "Move Earth": ["Druid", "Sorcerer", "Wizard"],
-  "Negative Energy Flood": ["Warlock", "Wizard"],
   "Nondetection": ["Bard", "Ranger", "Wizard"],
   "Nystul's Magic Aura": ["Wizard"],
   "Otiluke's Freezing Sphere": ["Sorcerer", "Wizard"],
-  "Otiluke's Resilient Sphere": ["Wizard", "Artificer"],
+  "Otiluke's Resilient Sphere": ["Wizard"],
   "Otto's Irresistible Dance": ["Bard", "Wizard"],
   "Pass without Trace": ["Druid", "Ranger"],
   "Passwall": ["Wizard"],
   "Phantasmal Force": ["Bard", "Sorcerer", "Wizard"],
   "Phantasmal Killer": ["Bard", "Wizard"],
   "Phantom Steed": ["Wizard"],
-  "Pinky Swear": ["Bard", "Paladin", "Wizard"],
   "Planar Ally": ["Cleric"],
   "Planar Binding": ["Bard", "Cleric", "Druid", "Warlock", "Wizard"],
   "Plane Shift": ["Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"],
   "Plant Growth": ["Bard", "Druid", "Ranger"],
   "Polymorph": ["Bard", "Druid", "Sorcerer", "Wizard"],
-  "Power Word Fortify": ["Bard", "Cleric"],
   "Power Word Heal": ["Bard", "Cleric"],
   "Power Word Kill": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Power Word Pain": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Power Word Stun": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Prayer of Healing": ["Cleric", "Paladin"],
   "Prismatic Spray": ["Bard", "Sorcerer", "Wizard"],
   "Prismatic Wall": ["Bard", "Wizard"],
   "Programmed Illusion": ["Bard", "Wizard"],
   "Project Image": ["Bard", "Wizard"],
-  "Protection from Energy": ["Cleric", "Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
+  "Protection from Energy": ["Cleric", "Druid", "Ranger", "Sorcerer", "Wizard"],
   "Protection from Evil and Good": ["Cleric", "Druid", "Paladin", "Warlock", "Wizard"],
-  "Protection from Poison": ["Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
-  "Purify Food and Drink": ["Cleric", "Druid", "Paladin", "Artificer"],
-  "Quick Clothier": ["Bard", "Wizard"],
+  "Protection from Poison": ["Cleric", "Druid", "Paladin", "Ranger"],
+  "Purify Food and Drink": ["Cleric", "Druid", "Paladin"],
   "Raise Dead": ["Bard", "Cleric", "Paladin"],
   "Rary's Telepathic Bond": ["Bard", "Wizard"],
   "Ray of Enfeeblement": ["Warlock", "Wizard"],
@@ -12268,15 +11006,13 @@ const SPELL_CLASS_LIST = {
   "Remove Curse": ["Cleric", "Paladin", "Warlock", "Wizard"],
   "Resurrection": ["Bard", "Cleric"],
   "Reverse Gravity": ["Druid", "Sorcerer", "Wizard"],
-  "Revivify": ["Cleric", "Druid", "Paladin", "Ranger", "Artificer"],
-  "Reweave Fate": ["Bard", "Cleric", "Warlock", "Wizard"],
-  "Rope Trick": ["Wizard", "Artificer"],
-  "Sanctuary": ["Cleric", "Artificer"],
+  "Revivify": ["Cleric", "Druid", "Paladin", "Ranger"],
+  "Rope Trick": ["Wizard"],
+  "Sanctuary": ["Cleric"],
   "Scorching Ray": ["Sorcerer", "Wizard"],
   "Scrying": ["Bard", "Cleric", "Druid", "Warlock", "Wizard"],
-  "Searing Orb": ["Cleric", "Paladin"],
   "Searing Smite": ["Paladin"],
-  "See Invisibility": ["Bard", "Sorcerer", "Wizard", "Artificer"],
+  "See Invisibility": ["Bard", "Sorcerer", "Wizard"],
   "Seeming": ["Bard", "Sorcerer", "Wizard"],
   "Sending": ["Bard", "Cleric", "Wizard"],
   "Sequester": ["Wizard"],
@@ -12287,94 +11023,57 @@ const SPELL_CLASS_LIST = {
   "Shining Smite": ["Paladin"],
   "Silence": ["Bard", "Cleric", "Ranger"],
   "Silent Image": ["Bard", "Sorcerer", "Wizard"],
-  "Simbul's Synostodweomer": ["Sorcerer", "Wizard"],
   "Simulacrum": ["Wizard"],
   "Sleep": ["Bard", "Sorcerer", "Wizard"],
   "Sleet Storm": ["Druid", "Sorcerer", "Wizard"],
   "Slow": ["Bard", "Sorcerer", "Wizard"],
-  "Songal's Elemental Suffusion": ["Druid", "Sorcerer", "Wizard"],
   "Speak with Animals": ["Bard", "Druid", "Ranger", "Warlock"],
   "Speak with Dead": ["Bard", "Cleric", "Wizard"],
   "Speak with Plants": ["Bard", "Druid", "Ranger"],
-  "Spellfire Flare": ["Sorcerer", "Wizard"],
-  "Spellfire Storm": ["Sorcerer", "Wizard"],
-  "Spider Climb": ["Sorcerer", "Warlock", "Wizard", "Artificer"],
+  "Spider Climb": ["Sorcerer", "Warlock", "Wizard"],
   "Spike Growth": ["Druid", "Ranger"],
   "Spirit Guardians": ["Cleric"],
-  "Spirit Lantern": ["Cleric", "Warlock", "Wizard"],
   "Spiritual Weapon": ["Cleric"],
-  "Staggering Smite": ["Paladin"],
-  "Steel Wind Strike": ["Ranger", "Wizard"],
-  "Sticks to Snakes": ["Cleric", "Druid", "Ranger"],
   "Stinking Cloud": ["Bard", "Sorcerer", "Wizard"],
-  "Stone Shape": ["Cleric", "Druid", "Wizard", "Artificer"],
-  "Stoneskin": ["Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
+  "Stone Shape": ["Cleric", "Druid", "Wizard"],
+  "Stoneskin": ["Druid", "Ranger", "Sorcerer", "Wizard"],
   "Storm of Vengeance": ["Druid"],
   "Suggestion": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Summon Aberration": ["Warlock", "Wizard"],
-  "Summon Beast": ["Druid", "Ranger"],
-  "Summon Celestial": ["Cleric", "Paladin"],
-  "Summon Construct": ["Wizard", "Artificer"],
-  "Summon Dinosaur": ["Druid"],
   "Summon Dragon": ["Wizard"],
-  "Summon Elemental": ["Druid", "Ranger", "Wizard"],
-  "Summon Fey": ["Druid", "Ranger", "Warlock", "Wizard"],
-  "Summon Fiend": ["Warlock", "Wizard"],
-  "Summon Plant": ["Druid", "Ranger"],
-  "Summon Undead": ["Warlock", "Wizard"],
   "Sunbeam": ["Cleric", "Druid", "Sorcerer", "Wizard"],
   "Sunburst": ["Cleric", "Druid", "Sorcerer", "Wizard"],
-  "Swift Quiver": ["Ranger"],
-  "Sylune's Viper": ["Druid", "Wizard"],
   "Symbol": ["Bard", "Cleric", "Druid", "Wizard"],
-  "Synaptic Static": ["Bard", "Sorcerer", "Warlock", "Wizard"],
-  "Tasha's Bubbling Cauldron": ["Warlock", "Wizard"],
   "Tasha's Hideous Laughter": ["Bard", "Warlock", "Wizard"],
   "Telekinesis": ["Sorcerer", "Wizard"],
-  "Telepathy": ["Wizard"],
   "Teleport": ["Bard", "Sorcerer", "Wizard"],
   "Teleportation Circle": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Tenser's Floating Disk": ["Wizard"],
-  "Thunderous Smite": ["Paladin"],
   "Thunderwave": ["Bard", "Druid", "Sorcerer", "Wizard"],
   "Time Stop": ["Sorcerer", "Wizard"],
   "Tongues": ["Bard", "Cleric", "Sorcerer", "Warlock", "Wizard"],
-  "Tortoise Shell": ["Druid", "Ranger"],
-  "Transfix": ["Bard", "Warlock", "Wizard"],
   "Transport via Plants": ["Druid"],
   "Tree Stride": ["Druid", "Ranger"],
   "True Polymorph": ["Bard", "Warlock", "Wizard"],
   "True Resurrection": ["Cleric", "Druid"],
   "True Seeing": ["Bard", "Cleric", "Sorcerer", "Warlock", "Wizard"],
   "Tsunami": ["Druid"],
-  "Uncertain Footing": ["Bard", "Warlock", "Wizard"],
   "Unseen Servant": ["Bard", "Warlock", "Wizard"],
   "Vampiric Touch": ["Sorcerer", "Warlock", "Wizard"],
-  "Vision of Elapsing Eons": ["Bard", "Sorcerer", "Warlock", "Wizard"],
   "Vitriolic Sphere": ["Sorcerer", "Wizard"],
-  "Void Star": ["Warlock", "Wizard"],
-  "Wail of the Banshee": ["Sorcerer", "Warlock", "Wizard"],
   "Wall of Fire": ["Druid", "Sorcerer", "Wizard"],
   "Wall of Force": ["Wizard"],
   "Wall of Ice": ["Wizard"],
-  "Wall of Stone": ["Druid", "Sorcerer", "Wizard", "Artificer"],
+  "Wall of Stone": ["Druid", "Sorcerer", "Wizard"],
   "Wall of Thorns": ["Druid"],
-  "Wardaway": ["Bard", "Cleric", "Paladin", "Wizard"],
   "Warding Bond": ["Cleric", "Paladin"],
-  "Water Breathing": ["Druid", "Ranger", "Sorcerer", "Wizard", "Artificer"],
-  "Water Walk": ["Cleric", "Druid", "Ranger", "Sorcerer", "Artificer"],
-  "Waves of Exhaustion": ["Sorcerer", "Warlock", "Wizard"],
-  "Web": ["Sorcerer", "Wizard", "Artificer"],
+  "Water Breathing": ["Druid", "Ranger", "Sorcerer", "Wizard"],
+  "Water Walk": ["Cleric", "Druid", "Ranger", "Sorcerer"],
+  "Web": ["Sorcerer", "Wizard"],
   "Weird": ["Warlock", "Wizard"],
   "Wind Walk": ["Druid"],
   "Wind Wall": ["Druid", "Ranger"],
   "Wish": ["Sorcerer", "Wizard"],
-  "Witch Bolt": ["Sorcerer", "Warlock", "Wizard"],
-  "Wither and Bloom": ["Druid", "Sorcerer", "Wizard"],
   "Word of Recall": ["Cleric"],
-  "Wrathful Smite": ["Paladin"],
-  "Yolande's Regal Presence": ["Bard", "Wizard"],
-  "Zone of Amicability": ["Bard", "Warlock"],
   "Zone of Truth": ["Bard", "Cleric", "Paladin"],
 };
 // True if `className` can actually learn/prepare the LEVELED spell named
@@ -12450,7 +11149,6 @@ const CANTRIPS_KNOWN_TABLE = {
   sorcerer: [4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
   warlock: [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
   wizard: [3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-  artificer: [2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4],
 };
 // Fixed cantrip count for a third caster (Eldritch Knight/Arcane Trickster)
 // - never scales with level, unlike every real caster's own table above.
@@ -12977,84 +11675,30 @@ function buildCharSheetFields(app, leftCol, rightCol, page, isCreate) {
   // "best-effort, treat as a draft" caveat as this file's other built-in
   // game-data tables (SUBCLASS_LEVEL_FEATURES, CANTRIP_CLASS_LIST, etc.).
   const RACE_SPEED_DATA = {
-    Aarakocra: { speed: 30, movement: "Walking, Flying (30 ft.)" },
-    Aasimar: { speed: 30, movement: "Walking" },
-    "Astral Elf": { speed: 30, movement: "Walking" },
-    Autognome: { speed: 30, movement: "Walking" },
-    Bugbear: { speed: 30, movement: "Walking" },
-    Centaur: { speed: 40, movement: "Walking" },
-    Changeling: { speed: 30, movement: "Walking" },
-    "Deep Gnome": { speed: 30, movement: "Walking" },
-    Dhampir: { speed: 35, movement: "Walking" }, // corrected 2026-09-21 to match Astarion's Book of Hungers (was 30)
+  // corrected 2026-09-21 to match Astarion's Book of Hungers (was 30)
     Dragonborn: { speed: 30, movement: "Walking" },
-    Duergar: { speed: 30, movement: "Walking" },
-    Dwarf: { speed: 30, movement: "Walking" },
-    Eladrin: { speed: 30, movement: "Walking" },
-    Elf: { speed: 30, movement: "Walking" },
-    Fairy: { speed: 30, movement: "Walking, Flying (30 ft.)" },
-    Firbolg: { speed: 30, movement: "Walking" },
-    Genasi: { speed: 30, movement: "Walking" },
-    Giff: { speed: 30, movement: "Walking" },
-    Githyanki: { speed: 30, movement: "Walking" },
-    Githzerai: { speed: 30, movement: "Walking" },
-    Gnome: { speed: 30, movement: "Walking" },
-    Goblin: { speed: 30, movement: "Walking" },
-    Goliath: { speed: 35, movement: "Walking" },
-    Grung: { speed: 25, movement: "Walking, Climbing (25 ft.)" },
-    Hadozee: { speed: 30, movement: "Walking" },
-    Halfling: { speed: 25, movement: "Walking" },
-    "Half-Elf": { speed: 30, movement: "Walking" },
-    "Half-Orc": { speed: 30, movement: "Walking" },
-    Harengon: { speed: 30, movement: "Walking" },
-    Hexblood: { speed: 30, movement: "Walking" },
-    // 25 ft., not the unified 2024 Dwarf's 30 ft. - the 2014 PHB Dwarf
-    // (and both its subraces) walked at 25 ft., same as Gnome; 2024
-    // bumped both up to 30, but a Hill/Mountain Dwarf sheet is explicitly
-    // built under the older rules (see RACE_TRAITS' comment on these).
-    "Hill Dwarf": { speed: 25, movement: "Walking" },
-    Hobgoblin: { speed: 30, movement: "Walking" },
-    Human: { speed: 30, movement: "Walking" },
-    Kalashtar: { speed: 30, movement: "Walking" },
-    Kenku: { speed: 30, movement: "Walking" },
-    Kobold: { speed: 30, movement: "Walking" },
-    Leonin: { speed: 35, movement: "Walking" },
-    Lizardfolk: { speed: 30, movement: "Walking, Swimming (30 ft.)" },
-    Locathah: { speed: 30, movement: "Walking, Swimming (30 ft.)" },
-    Loxodon: { speed: 30, movement: "Walking" },
-    Minotaur: { speed: 30, movement: "Walking" },
-    "Mountain Dwarf": { speed: 25, movement: "Walking" },
-    Orc: { speed: 30, movement: "Walking" },
-    Owlfolk: { speed: 30, movement: "Walking, Flying (30 ft.)" },
-    Plasmoid: { speed: 30, movement: "Walking" },
-    Reborn: { speed: 30, movement: "Walking" },
-    Satyr: { speed: 35, movement: "Walking" },
-    "Sea Elf": { speed: 30, movement: "Walking, Swimming (30 ft.)" },
-    Shifter: { speed: 30, movement: "Walking" },
-    "Simic Hybrid": { speed: 30, movement: "Walking" },
-    Tabaxi: { speed: 30, movement: "Walking, Climbing (30 ft.)" },
-    "Thri-kreen": { speed: 30, movement: "Walking" },
-    Tiefling: { speed: 30, movement: "Walking" },
-    Tortle: { speed: 30, movement: "Walking" },
-    Triton: { speed: 30, movement: "Walking, Swimming (30 ft.)" },
-    Vedalken: { speed: 30, movement: "Walking" },
-    Verdan: { speed: 30, movement: "Walking" },
-    Warforged: { speed: 30, movement: "Walking" },
-    "Yuan-Ti Pureblood": { speed: 30, movement: "Walking" },
-  };
+  Dwarf: { speed: 30, movement: "Walking" },
+  Elf: { speed: 30, movement: "Walking" },
+  Gnome: { speed: 30, movement: "Walking" },
+  Goliath: { speed: 35, movement: "Walking" },
+  Halfling: { speed: 25, movement: "Walking" },
+  Human: { speed: 30, movement: "Walking" },
+  Orc: { speed: 30, movement: "Walking" },
+  Tiefling: { speed: 30, movement: "Walking" },
+};
   const SUBCLASS_MAP = {
-    "Artificer": ["Alchemist","Armorer","Artillerist","Battle Smith"],
-    "Barbarian": ["Ancestral Guardian","Battlerager","Berserker","Storm Herald","Totem Warrior","Zealot"],
-    "Bard": ["College of Creation","College of Eloquence","College of Glamour","College of Lore","College of Swords","College of the Moon","College of Valor","College of Whispers"],
-    "Cleric": ["Arcana Domain","Death Domain","Forge Domain","Grave Domain","Knowledge Domain","Life Domain","Light Domain","Nature Domain","Order Domain","Peace Domain","Tempest Domain","Trickery Domain","Twilight Domain","War Domain"],
-    "Druid": ["Circle of Dreams","Circle of Spores","Circle of Stars","Circle of the Land","Circle of the Moon","Circle of the Shepherd","Circle of Wildfire"],
-    "Fighter": ["Arcane Archer","Battle Master","Cavalier","Champion","Echo Knight","Eldritch Knight","Psi Warrior","Purple Dragon Knight","Rune Knight","Samurai"],
-    "Monk": ["Drunken Master","Four Elements","Kensei","Long Death","Mercy","Open Hand","Shadow","Sun Soul","Warrior of the Mystic Arts"],
-    "Paladin": ["Ancients","Conquest","Crown","Devotion","Glory","Oathbreaker","Oath of the Noble Genies","Redemption","Vengeance","Watchers"],
-    "Ranger": ["Beast Master","Fey Wanderer","Gloom Stalker","Horizon Walker","Hunter","Monster Slayer","Swarmkeeper","Winter Walker"],
-    "Rogue": ["Arcane Trickster","Assassin","Inquisitive","Mastermind","Phantom","Scion of the Three","Scout","Soulknife","Swashbuckler","Thief"],
-    "Sorcerer": ["Aberrant Mind","Clockwork Soul","Divine Soul","Draconic Bloodline","Shadow Magic","Spellfire Sorcery","Storm Sorcery","Wild Magic"],
-    "Warlock": ["Archfey","Celestial","Fathomless","Fiend","Genie","Great Old One","Hexblade","Undead","Undying","Vestige Patron"],
-    "Wizard": ["Bladesinging","Chronurgy","Graviturgy","Lore Mastery","Order of Scribes","School of Abjuration","School of Conjuration","School of Divination","School of Enchantment","School of Evocation","School of Illusion","School of Necromancy","School of Transmutation","War Magic"],
+    "Barbarian": ["Berserker"],
+    "Bard": ["College of Lore"],
+    "Cleric": ["Life Domain"],
+    "Druid": ["Circle of the Land"],
+    "Fighter": ["Champion"],
+    "Monk": ["Open Hand"],
+    "Paladin": ["Devotion"],
+    "Ranger": ["Hunter"],
+    "Rogue": ["Thief"],
+    "Sorcerer": ["Draconic Bloodline"],
+    "Warlock": ["Fiend"],
+    "Wizard": ["School of Evocation"]
   };
   const ALIGNMENT_OPTIONS = ["Lawfull Good","Neutral Good","Chaotic Good","Lawfull Neutral","True Neutral","Chaotic Neutral","Lawfull Evil","Neutral Evil","Chaotic Evil"];
 
@@ -16489,7 +15133,7 @@ class OverviewTracker extends MarkdownRenderChild {
         if (q.mode === "prepare") {
           section.createEl("div", {
             cls: "wizard-spell-hint",
-            text: "This class re-prepares its spells from its whole class list after every Long Rest. Select which ones are prepared for today - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster or Artificer), minimum 1.",
+            text: "This class re-prepares its spells from its whole class list after every Long Rest. Select which ones are prepared for today - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster), minimum 1.",
           });
         }
 
@@ -17825,7 +16469,7 @@ function openHomebrewClassWizard(existing, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   // Shown alongside Hit Die/Primary Ability/Saves/Features on the Create
   // Character and Update Character wizards' Class page (see
@@ -17914,7 +16558,7 @@ function openHomebrewSubclassWizard(existing, classOptions, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   // Shown above "Features at Level X" on the Create Character and Update
   // Character wizards' Class page once this subclass is chosen (see
@@ -18022,7 +16666,7 @@ function openHomebrewRaceWizard(existing, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   // Shown alongside Speed/Traits on the Create Character and Update
   // Character wizards' Species page (see getRaceDescription's homebrew
@@ -18140,7 +16784,7 @@ function openHomebrewAncestryWizard(existing, raceOptions, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
   descBlock.createEl("span", { cls: "action-modal-label", text: "Description (shown before a choice is made)" });
@@ -18226,7 +16870,7 @@ function openHomebrewFeatureWizard(existing, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
   descBlock.createEl("span", { cls: "action-modal-label", text: "Description" });
@@ -18392,35 +17036,6 @@ ___
 >![[object.png|right wm-sm]]
 ${bodyText}
 <span class="clearfix"></span>
-
-> [!column|flex 3]
-> > [!hint]- LIDÉ
-> > \`\`\`base
-> > properties:
-> >   file.name:
-> >     displayName: Name
-> > views:
-> >   - type: table
-> >     name: Name
-> >     filters:
-> >       and:
-> >         - file.inFolder("Dungeons & Dragons/01. Kampaň/1. Master Plan/NPC")
-> >         - file.hasLink(this.file)
-> > \`\`\`
->
->> [!note]- HISTORIE
-> > \`\`\`base
-> > properties:
-> >   file.name:
-> >     displayName: Name
-> > views:
-> >   - type: table
-> >     name: Session Notes
-> >     filters:
-> >       and:
-> >         - file.inFolder("Dungeons & Dragons/01. Kampaň/1. Master Plan/Deník")
-> >         - file.hasLink(this.file)
-> > \`\`\`
 `;
   return note;
 }
@@ -18470,7 +17085,7 @@ function openHomebrewItemWizard(onDone) {
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
     text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official SRD/library items - so you can tell them apart at a glance.",
@@ -18689,49 +17304,43 @@ function openHomebrewItemWizard(onDone) {
 
 // ---- Homebrew feat notes ----
 // Same "real vault file, not plugin settings" idea as the item notes above,
-// but matching the Rysy (Feats) library's own format instead of the item
+// but matching the Feats library's own format instead of the item
 // library's - see FEAT_CATEGORIES for the four category subfolders and
 // getAllFeatNotes (near the top of this file) for the exact "**Label:**"
 // line syntax and #Feat tag this has to reproduce so a homebrew feat is
 // found by the Level Up "Take a Feat instead" picker exactly like an
-// official one. Per the user's own choice when this phase was scoped
-// (full bilingual, matching the library), this always writes both a Czech
-// and an English side, unlike the Item wizard which has no such split.
+// official one. Writes a plain English-only note - getAllFeatNotes already
+// reads "**Type:**"/"**Prerequisite:**"/etc. (falling back to the official
+// library's own Czech labels only for notes that still use them), so a
+// note built here needs no bilingual split of its own.
 //
 // As of 2026-09-25 this also prepends a small YAML frontmatter block - the
 // ONLY thing that distinguishes a homebrew feat note's shape from an
-// official Rysy (Feats) library entry (which has no frontmatter at all) -
-// carrying `tags: [Homebrew]` and a `source:` field, so both are real
-// properties Dataview/Bases can filter on, not just body text. The
-// existing inline `#Feat` tag and body `*Zdroj: ...*` citation line are
-// unchanged (every feat, official or homebrew, still has both); "Homebrew"
-// itself just moved from an inline tag to frontmatter per the user's own
-// request, since Obsidian's tag search treats a frontmatter list tag and
-// an inline hashtag identically for `getAllTags`/`tags.includes("#Feat")`
-// detection either way, so nothing else needed to change to keep the
-// picker's official/homebrew feat lookup working.
+// official Feats library entry (which has no frontmatter at all) - carrying
+// `tags: [Homebrew]` and a `source:` field, so both are real properties
+// Dataview/Bases can filter on, not just body text. The existing inline
+// `#Feat` tag and body `*Source: ...*` citation line are unchanged (every
+// feat, official or homebrew, still has both); "Homebrew" itself just moved
+// from an inline tag to frontmatter per the user's own request, since
+// Obsidian's tag search treats a frontmatter list tag and an inline
+// hashtag identically for `getAllTags`/`tags.includes("#Feat")` detection
+// either way, so nothing else needed to change to keep the picker's
+// official/homebrew feat lookup working.
 function buildHomebrewFeatNote(data) {
   const cat = FEAT_CATEGORIES[data.category] || FEAT_CATEGORIES.General;
   const source = data.source || "Homebrew";
   const lines = ["---", "tags:", "  - Homebrew", `source: ${yamlQuote(source)}`, "---", ""];
-  lines.push(`# ${data.nameCz} (${data.nameEn})`, "");
-  lines.push(`**Typ:** ${cat.labelCz} *(${cat.labelEn})*`);
-  if (data.prereqCz) lines.push(`**Předpoklad:** ${data.prereqCz}`);
-  lines.push(`**Opakovatelný:** ${data.repeatable ? "Ano" : "Ne"}`);
-  if (data.asiCz) lines.push(`**Zvýšení vlastnosti:** ${data.asiCz}`);
+  lines.push(`# ${data.name}`, "");
+  lines.push(`**Type:** ${cat.labelEn}`);
+  if (data.prereq) lines.push(`**Prerequisite:** ${data.prereq}`);
+  lines.push(`**Repeatable:** ${data.repeatable ? "Yes" : "No"}`);
+  if (data.asi) lines.push(`**Ability Score Increase:** ${data.asi}`);
   lines.push("");
-  lines.push(String(data.descriptionCz || "").trim());
+  lines.push(String(data.description || "").trim());
   lines.push("");
-  lines.push(`*Zdroj: ${source}*`);
+  lines.push(`*Source: ${source}*`);
   lines.push("");
   lines.push("#Feat");
-  lines.push("");
-  lines.push("---");
-  lines.push("## English");
-  lines.push("");
-  if (data.prereqEn) lines.push(`**Prerequisite:** ${data.prereqEn}`);
-  lines.push("");
-  lines.push(String(data.descriptionEn || "").trim());
   lines.push("");
   return lines.join("\n");
 }
@@ -18749,8 +17358,8 @@ function openHomebrewFeatWizard(onDone) {
   modal.createEl("p", {
     cls: "setting-item-description",
     text:
-      "Creates a real bilingual note in your vault, formatted and tagged exactly like every other feat in your " +
-      'library - the Level Up "Take a Feat instead" picker will offer it immediately, no reload needed.',
+      "Creates a real note in your vault, formatted and tagged exactly like every other feat in your library - " +
+      'the Level Up "Take a Feat instead" picker will offer it immediately, no reload needed.',
   });
 
   const row = (label) => {
@@ -18759,47 +17368,39 @@ function openHomebrewFeatWizard(onDone) {
     return r;
   };
 
-  const nameCzInput = row("Name (Czech)").createEl("input", { type: "text" });
-  nameCzInput.placeholder = "e.g. Arkánní Spiritualista";
-  const nameEnInput = row("Name (English)").createEl("input", { type: "text" });
-  nameEnInput.placeholder = "e.g. Arcane Spiritualist";
+  const nameInput = row("Name").createEl("input", { type: "text" });
+  nameInput.placeholder = "e.g. Arcane Spiritualist";
 
   const categorySelect = row("Category").createEl("select");
   for (const key of Object.keys(FEAT_CATEGORIES)) {
-    const opt = categorySelect.createEl("option", { text: `${FEAT_CATEGORIES[key].labelEn} (${FEAT_CATEGORIES[key].labelCz})` });
+    const opt = categorySelect.createEl("option", { text: FEAT_CATEGORIES[key].labelEn });
     opt.value = key;
   }
 
-  const prereqCzInput = row("Prerequisite (Czech, optional)").createEl("input", { type: "text" });
-  prereqCzInput.placeholder = "e.g. Úroveň 4+; Síla 13+ nebo Obratnost 13+";
-  const prereqEnInput = row("Prerequisite (English, optional)").createEl("input", { type: "text" });
-  prereqEnInput.placeholder = "e.g. Level 4+; Strength 13+ or Dexterity 13+";
+  const prereqInput = row("Prerequisite (optional)").createEl("input", { type: "text" });
+  prereqInput.placeholder = "e.g. Level 4+; Strength 13+ or Dexterity 13+";
 
   const repeatRow = row("Repeatable");
   const repeatCheckbox = repeatRow.createEl("input", { type: "checkbox" });
 
-  const asiRow = row("Ability Score Increase (Czech, optional)");
+  const asiRow = row("Ability Score Increase (optional)");
   const asiInput = asiRow.createEl("input", { type: "text" });
-  asiInput.placeholder = "e.g. +1 Inteligence, Moudrost nebo Charisma (max. 20)";
+  asiInput.placeholder = "e.g. +1 Intelligence, Wisdom, or Charisma (max. 20)";
   asiRow.createEl("span", {
     cls: "setting-item-description",
     text: "General Feats grant an ability score increase; Origin/Fighting Style/Epic Boon feats usually leave this blank.",
   });
 
-  const descCzBlock = modal.createEl("div", { cls: "feature-desc-block" });
-  descCzBlock.createEl("span", { cls: "action-modal-label", text: "Description (Czech)" });
-  const descCzInput = descCzBlock.createEl("textarea", { cls: "feature-desc-textarea" });
-
-  const descEnBlock = modal.createEl("div", { cls: "feature-desc-block" });
-  descEnBlock.createEl("span", { cls: "action-modal-label", text: "Description (English)" });
-  const descEnInput = descEnBlock.createEl("textarea", { cls: "feature-desc-textarea" });
+  const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
+  descBlock.createEl("span", { cls: "action-modal-label", text: "Description" });
+  const descInput = descBlock.createEl("textarea", { cls: "feature-desc-textarea" });
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
-    text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official Rysy (Feats) library entries - so you can tell them apart at a glance.",
+    text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official Feats library entries - so you can tell them apart at a glance.",
   });
 
   const errorEl = modal.createEl("div", { cls: "homebrew-wizard-error" });
@@ -18808,22 +17409,18 @@ function openHomebrewFeatWizard(onDone) {
   const cancelBtn = btnRow.createEl("button", { text: "Cancel" });
   cancelBtn.onclick = () => overlay.remove();
   saveBtn.onclick = () => {
-    const nameCz = nameCzInput.value.trim();
-    const nameEn = nameEnInput.value.trim();
-    if (!nameCz || !nameEn) {
-      errorEl.setText("Please enter both a Czech and an English name.");
+    const name = nameInput.value.trim();
+    if (!name) {
+      errorEl.setText("Please enter a name.");
       return;
     }
     const data = {
-      nameCz,
-      nameEn,
+      name,
       category: categorySelect.value,
-      prereqCz: prereqCzInput.value.trim(),
-      prereqEn: prereqEnInput.value.trim(),
+      prereq: prereqInput.value.trim(),
       repeatable: repeatCheckbox.checked,
-      asiCz: asiInput.value.trim(),
-      descriptionCz: descCzInput.value,
-      descriptionEn: descEnInput.value,
+      asi: asiInput.value.trim(),
+      description: descInput.value,
       source: sourceInput.value.trim(),
     };
     overlay.remove();
@@ -18956,7 +17553,7 @@ function openHomebrewMonsterWizard(onDone) {
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
     text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike an official bestiary monster.",
@@ -19030,7 +17627,7 @@ function openHomebrewMonsterWizard(onDone) {
   const condImmuneInput = condImmuneRow.createEl("input", { type: "text" });
   condImmuneRow.createEl("span", {
     cls: "setting-item-description",
-    text: 'Plain text is fine, or paste real vault wikilinks (e.g. "[[Vystrašený (Frightened)|Frightened]]") to match how this vault\'s other bestiary notes cross-link conditions.',
+    text: 'Plain text is fine, or paste real vault wikilinks (e.g. "[[Frightened]]") to match how this vault\'s other bestiary notes cross-link conditions.',
   });
   const sensesRow = row("Senses");
   const sensesInput = sensesRow.createEl("input", { type: "text" });
@@ -19183,7 +17780,7 @@ function openHomebrewBackgroundWizard(existing, allFeatNames, onSave) {
   bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
   const bookInput = bookRow.createEl("input", { type: "text" });
   bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
 
   // Shown under the Background dropdown on the Create Character wizard
   // (see the backgroundDescStatus block in buildCharSheetFields) - same
@@ -19336,7 +17933,7 @@ class Dnd2024SettingTab extends PluginSettingTab {
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. Dungeons & Dragons/06. Tradice, Frakce & Předměty/Předměty")
+          .setPlaceholder("e.g. TTRPG/Items")
           .setValue(this.plugin.settings.itemLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.itemLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -19348,13 +17945,13 @@ class Dnd2024SettingTab extends PluginSettingTab {
       .setName("Feat library folder")
       .setDesc(
         'Where Homebrew Content > Feats\' "+ Create Homebrew Feat Note" wizard files new feat notes - point this ' +
-          "at the folder that directly CONTAINS the four category subfolders (Obecné rysy, Bojové rysy, Epické " +
-          'dary, Počáteční rysy) - each new feat lands in the right one automatically (e.g. "<this>/Obecné rysy ' +
-          '(General Feats)/Rys (Feat).md"), matching the official Rysy (Feats) library\'s own layout.'
+          "at the folder that directly CONTAINS the four category subfolders (General Feats, Fighting Style " +
+          'Feats, Epic Boons, Origin Feats) - each new feat lands in the right one automatically (e.g. ' +
+          '"<this>/General Feats/Feat Name.md"), matching the official Feats library\'s own layout.'
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. Dungeons & Dragons/02. Pravidla/Oficiální pravidla D&D/Rysy (Feats)")
+          .setPlaceholder("e.g. TTRPG/Rules/Feats")
           .setValue(this.plugin.settings.featLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.featLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -19367,11 +17964,11 @@ class Dnd2024SettingTab extends PluginSettingTab {
       .setDesc(
         'Where Homebrew Content > Monsters\' "+ Create Homebrew Monster Note" wizard files new monster notes - ' +
           "all homebrew monsters are filed flat into this one folder regardless of type, matching this vault's " +
-          "own \"Homebrew Příšery\"-style bestiary layout (no per-type subfolder)."
+          "own \"Homebrew Monsters\"-style bestiary layout (no per-type subfolder)."
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. Dungeons & Dragons/04. Kniha příšer/Homebrew Příšery")
+          .setPlaceholder("e.g. TTRPG/Bestiary/Homebrew Monsters")
           .setValue(this.plugin.settings.monsterLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.monsterLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -20892,13 +19489,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
     // verbatim per the user's own wording. A book with no blurb here (e.g.
     // a brand new one just added in Settings) simply shows no description
     // line, only its live content counts.
-    const HOMEBREW_BOOK_BLURBS = {
-      "Kamon Corebook": "A feudal-Japan-themed setting book — new species, classes, subclasses, backgrounds, and traditions inspired by Japanese mythology and history.",
-      "The Black Ballad": "A gothic afterlife-themed sourcebook centered on the Sunless Crossing and its godless, gargoyle, and undead-adjacent species.",
-      "Grizelda's Guide to Ghost Hunting": "A ghost-hunting sourcebook — subclasses, backgrounds, and feats built around tracking and battling the undead.",
-      "Creed's Codex: Arcane Secrets of the Summoners": "A dedicated Summoner class sourcebook, with subclasses built around different summoned-ally archetypes.",
-      "Bloodpunk": "A punk-rebellion-themed sourcebook.",
-    };
+    const HOMEBREW_BOOK_BLURBS = {};
     // "N species, N classes, ..." with the right singular/plural noun per
     // category, skipping any category whose count is 0 (e.g. Bloodpunk only
     // contributes a subclass, so its line reads just "Adds 1 subclass.").
@@ -21987,7 +20578,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
         if (q.mode === "prepare") {
           section.createEl("div", {
             cls: "wizard-spell-hint",
-            text: "This class re-prepares its spells from its whole class list after every Long Rest. Choose which ones are prepared for day one - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster or Artificer), minimum 1.",
+            text: "This class re-prepares its spells from its whole class list after every Long Rest. Choose which ones are prepared for day one - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster), minimum 1.",
           });
         }
 
@@ -23017,7 +21608,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
   }
 
   // Creates a new character note pre-wired with the same tracker blocks as
-  // the reference template (Kompendium/character-sheet-template.md), so it
+  // the reference template (Compendium/character-sheet-template.md), so it
   // renders as a working character sheet right away. Falls back to a
   // built-in copy of that body if the reference template can't be found.
   // The mechanical part (everything up to the "# Backstory" marker) always
@@ -23382,9 +21973,7 @@ tags:
   // Called from Homebrew Content > Feats' "+ Create Homebrew Feat Note"
   // button - same shape of method as createHomebrewItemNote above, but
   // filing into a category subfolder (see FEAT_CATEGORIES) under
-  // settings.featLibraryFolder instead of a rarity subfolder, and using the
-  // note's own bilingual "Czech Name (English Name)" filename convention
-  // (see buildHomebrewFeatNote/getAllFeatNotes) instead of a single name.
+  // settings.featLibraryFolder instead of a rarity subfolder.
   async createHomebrewFeatNote(data) {
     const libraryFolder = (this.settings && this.settings.featLibraryFolder) || "";
     if (!libraryFolder) {
@@ -23406,7 +21995,7 @@ tags:
       }
     }
 
-    const safeBaseName = `${data.nameCz} (${data.nameEn})`.replace(/[\\/:*?"<>|]/g, "").trim() || "Homebrew Feat";
+    const safeBaseName = String(data.name || "").replace(/[\\/:*?"<>|]/g, "").trim() || "Homebrew Feat";
     let fileName = safeBaseName;
     let filePath = `${categoryFolder}/${fileName}.md`;
     let counter = 2;
