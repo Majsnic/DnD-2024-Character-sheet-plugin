@@ -587,9 +587,13 @@
   display: grid;
   /* 2026-09-23: dropped the two trailing 18px tracks that used to reserve
      space for the per-row delete ("✕") button and its blank header
-     column - both were removed per the user's own request, and every row
-     here (Name/Range/Hit-DC/Damage/Type) is now exactly 5 grid items. */
-  grid-template-columns: 192px minmax(0, 0.6fr) minmax(0, 0.6fr) 70px 150px;
+     column - both were removed per the user's own request.
+     2026-11-09: dropped the trailing 150px "Type" track too - it was a
+     redundant second copy of the damage type word, which already shows
+     as plain text right after the Damage dice (see main.js's dmgSplit.rest
+     suffix). Every row here (Name/Range/Hit-DC/Damage) is now exactly 4
+     grid items. */
+  grid-template-columns: 192px minmax(0, 0.6fr) minmax(0, 0.6fr) 70px;
   align-items: center;
   gap: 14px;
   border-bottom: 1px solid var(--dnd-border);
@@ -612,8 +616,7 @@
 }
 .dnd-sheet .action-card > *:nth-child(2),
 .dnd-sheet .action-card > *:nth-child(3),
-.dnd-sheet .action-card > *:nth-child(4),
-.dnd-sheet .action-card > *:nth-child(5) {
+.dnd-sheet .action-card > *:nth-child(4) {
   text-align: center;
 }
 .dnd-sheet .action-name {
@@ -647,10 +650,26 @@
    cell instead of wrapping oddly. */
 .dnd-sheet .action-stat .dice-roll-cell {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  white-space: nowrap;
   gap: 0.3em;
   color: var(--dnd-text);
   font-weight: 700;
+}
+/* Dice Roller renders its clickable roll button as its own markdown-
+   rendered element (a <p>, flattened to inline above in main.js, wrapping
+   further elements of its own) - its internal line-height/margin can sit
+   at a different baseline than this plugin's own plain-text trailing
+   suffix span (the damage type/effect word appended right after it),
+   which showed up as the dice button and its trailing word looking like
+   they were on two different height levels. Normalizing every element
+   Dice Roller or this plugin puts inside the cell to the same line-height
+   and middle vertical-align keeps them level regardless of what Dice
+   Roller's own markup looks like internally. */
+.dnd-sheet .action-stat .dice-roll-cell * {
+  margin: 0;
+  line-height: 1;
+  vertical-align: middle;
 }
 .dnd-sheet .action-btn {
   background: transparent;
@@ -1440,11 +1459,28 @@
    to match D&D Beyond's own Time/Range/Hit-DC/Effect column set ===== */
 .dnd-sheet .spell-row {
   display: grid;
-  grid-template-columns: 1.6fr 46px 85px 65px 1.4fr 18px 46px;
+  /* 2026-11-09: Time/Range/Hit-DC/Effect moved out of this row's own flat
+     column list into their own ".spell-stats-wrap" child (see main.js),
+     so this row is now exactly 4 grid items: name, the stats wrapper
+     (sized here to match the combined width of its old 4 sub-columns),
+     the remove ("✕") button, and the Cast button. This split is what
+     lets the phone-width override below drop the stats wrapper onto its
+     own row underneath the name/Cast line, DnD-Beyond-mobile style. */
+  grid-template-columns: 1.6fr minmax(220px, 3fr) 18px 46px;
   align-items: center;
   gap: 6px;
   border-bottom: 1px solid var(--dnd-border);
   padding: 5px 2px;
+}
+/* The stats wrapper gets its own independent grid so its 4 cells
+   (Time/Range/Hit-DC/Effect) keep their old fixed/flexible widths
+   regardless of how much space the outer .spell-row track above gives
+   it - same effect as before the split, just nested one level deeper. */
+.dnd-sheet .spell-stats-wrap {
+  display: grid;
+  grid-template-columns: 46px 85px 65px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
 }
 .dnd-sheet .spell-cast-btn {
   background: transparent;
@@ -1486,20 +1522,19 @@
 .dnd-sheet .spell-row-header span:first-child {
   text-align: left;
 }
-.dnd-sheet .spell-row-header span:nth-child(2),
-.dnd-sheet .spell-row-header span:nth-child(3),
-.dnd-sheet .spell-row-header span:nth-child(4) {
+/* Time/Range/Hit-DC used to be this row's own 2nd/3rd/4th children;
+   now they're the 1st/2nd/3rd children of .spell-stats-wrap instead (see
+   main.js and the ".spell-stats-wrap" rule above) - same alignment,
+   just retargeted one level deeper. Matches both the header's stats
+   wrapper and every data row's, since both share this class. Effect
+   (the wrapper's 4th child) keeps the general right-align above, same
+   as before. */
+.dnd-sheet .spell-stats-wrap > *:nth-child(1),
+.dnd-sheet .spell-stats-wrap > *:nth-child(2),
+.dnd-sheet .spell-stats-wrap > *:nth-child(3) {
   text-align: center;
 }
-.dnd-sheet .spell-row-header span:nth-child(4) {
-  margin-left: 10px;
-}
-.dnd-sheet .spell-row > *:nth-child(2),
-.dnd-sheet .spell-row > *:nth-child(3),
-.dnd-sheet .spell-row > *:nth-child(4) {
-  text-align: center;
-}
-.dnd-sheet .spell-row > *:nth-child(4) {
+.dnd-sheet .spell-stats-wrap > *:nth-child(3) {
   margin-left: 10px;
 }
 
@@ -2936,15 +2971,54 @@
   }
   .dnd-sheet.dnd-sheet.dnd-sheet .action-card {
     /* 2026-09-23: dropped the two trailing 18px tracks along with the
-       desktop rule above - see that rule's comment. */
-    grid-template-columns: minmax(90px, 1fr) 42px 42px 34px 56px;
+       desktop rule above - see that rule's comment.
+       2026-11-09: dropped the trailing 56px "Type" track too - see the
+       desktop rule's comment. */
+    grid-template-columns: minmax(90px, 1fr) 42px 42px 34px;
     gap: 8px;
     font-size: 0.92em;
   }
+  /* ---- Spells tab, phone width: DnD Beyond mobile's 2-row spell card.
+     Row 1 is the spell name (left) and the Cast button (right), with the
+     remove ("✕") button tucked in between them; row 2 is the
+     .spell-stats-wrap child (Time/Range/Hit-DC/Effect) spanning the full
+     width underneath. This only needs to reposition .spell-row's existing
+     4 children via CSS - no change to what main.js builds or how any of
+     it behaves, so dice-roll buttons, the remove button and the Cast
+     button (including its disabled state during slot consumption) all
+     keep working exactly as before, just laid out differently. The
+     header row reflows the same way since it shares this class and the
+     same 4-child shape (see main.js). */
   .dnd-sheet .spell-row {
-    grid-template-columns: minmax(90px, 1.4fr) 38px 46px 46px minmax(70px, 1fr) 18px 40px;
-    gap: 4px;
+    grid-template-columns: 1fr 18px 56px;
+    grid-template-areas:
+      "name   remove cast"
+      "stats  stats  stats";
+    column-gap: 6px;
+    row-gap: 4px;
     font-size: 0.92em;
+    padding: 8px 2px;
+  }
+  .dnd-sheet .spell-row > *:nth-child(1) {
+    grid-area: name;
+  }
+  .dnd-sheet .spell-row > *:nth-child(2) {
+    grid-area: stats;
+  }
+  .dnd-sheet .spell-row > *:nth-child(3) {
+    grid-area: remove;
+  }
+  .dnd-sheet .spell-row > *:nth-child(4) {
+    grid-area: cast;
+  }
+  /* Row 2's own 4 cells (Time/Range/Hit-DC/Effect) now span the row's
+     full phone-width instead of sharing it with the name/Cast line, so
+     give them a looser, more evenly-shared set of tracks than the
+     desktop fixed-px ones - Effect still gets the largest share since
+     its text tends to run longest. */
+  .dnd-sheet .spell-stats-wrap {
+    grid-template-columns: minmax(40px, 0.8fr) minmax(50px, 1fr) minmax(50px, 0.9fr) minmax(70px, 1.3fr);
+    gap: 4px;
   }
   .dnd-sheet .spell-cast-btn {
     font-size: 0.6em;

@@ -6930,15 +6930,50 @@ function attackRollFormula(hitText) {
 // Pulls a leading dice expression (one or more NdM/flat terms joined by
 // +/-) off the front of a damage/effect string - e.g. "1d10 Force" ->
 // formula "1d10", rest "Force"; "2d6 + 1d4 Fire" -> "2d6 + 1d4" / "Fire".
-// The trailing text (damage type, or any other descriptive wording) is
-// never folded into the roll itself. Returns null for anything that
-// doesn't start with dice notation at all (a purely descriptive effect
-// like "You become invisible"), so that stays plain text unchanged.
+// Returns null for anything that doesn't start with dice notation at all
+// (a purely descriptive effect like "You become invisible"), so that
+// stays plain text unchanged.
+//
+// A flat modifier can also show up AFTER a descriptive word instead of
+// right after the dice - e.g. "2d4 Healing +4" (from a healing spell
+// note phrased "2d4 Healing + Spellcasting ability modifier", with the
+// modifier substituted in - see SpellsTracker.substituteModifier). The
+// leading-dice match above stops at "2d4" there (a word, not another
+// dice/flat term, follows it), leaving "Healing +4" as the rest - so
+// once that initial split is done, also check whether the rest itself
+// ends in its own flat +/-N and, if so, fold that into the roll and
+// leave only the clean descriptive word behind - same end result as
+// "1d10 Force" above, just reached in two steps instead of one, and
+// per the user's own request not to show "+4" as text when it's really
+// part of what gets rolled.
 function damageRollSplit(damageText) {
   const str = String(damageText ?? "").trim();
   const m = str.match(/^((?:\d+d\d+)(?:\s*[+-]\s*(?:\d+d\d+|\d+))*)\s*(.*)$/i);
   if (!m || !m[1]) return null;
-  return { formula: m[1].replace(/\s+/g, ""), rest: m[2].trim() };
+  let formula = m[1].replace(/\s+/g, "");
+  let rest = m[2].trim();
+  const trailingMod = rest.match(/^(.*?)\s*([+-]\s*\d+)$/);
+  if (trailingMod) {
+    formula += trailingMod[2].replace(/\s+/g, "");
+    rest = trailingMod[1].trim();
+  }
+  return { formula, rest };
+}
+
+// Builds the plain-text fallback shown when Dice Roller is off/unavailable
+// (renderDiceOrText's fallbackText) - without this, that fallback just
+// echoes the raw source string verbatim (e.g. "2d4 Healing +4", word
+// before modifier, straight from the spell note's own phrasing), which
+// reads oddly once damageRollSplit above has already folded a trailing
+// modifier into the roll. Rebuilds it in the same clean order the roll
+// button itself uses - dice (plus any folded-in modifier) first, the
+// descriptive word last, nothing after it - e.g. "2d4 +4 Healing", per
+// the user's own request. A split with no rest (e.g. a plain "1d8") or
+// no split at all (a non-dice effect) is untouched either way.
+function buildRollFallbackText(split, rawText) {
+  if (!split) return rawText;
+  const spacedFormula = split.formula.replace(/([^\s])([+-]\d)/g, "$1 $2");
+  return split.rest ? `${spacedFormula} ${split.rest}` : spacedFormula;
 }
 
 // Renders `formula` into `containerEl` as a clickable Dice Roller roll
@@ -9294,7 +9329,7 @@ class ActionsTracker extends MarkdownRenderChild {
       // -- 1. Compact stats table ("the list of actions we have now") --
       if (statRows.length) {
         const header = el.createEl("div", { cls: "action-card action-card-header" });
-        for (const h of ["Name", "Range", "Hit/DC", "Damage", "Type"]) {
+        for (const h of ["Name", "Range", "Hit/DC", "Damage"]) {
           header.createEl("span", { text: h });
         }
         for (const item of statRows) {
@@ -9393,13 +9428,15 @@ class ActionsTracker extends MarkdownRenderChild {
       this.app,
       dmgCell,
       dmgSplit ? dmgSplit.formula : null,
-      item.damage,
+      buildRollFallbackText(dmgSplit, item.damage),
       this,
       this.mainFile.path,
       dmgSplit ? dmgSplit.rest : ""
     );
-    const dmgType = card.createEl("span", { cls: "action-stat" });
-    dmgType.createEl("b", { text: item.damage_type || "" });
+    // 2026-11-09: dropped the dedicated "Type" column here - damage type
+    // was already shown as the plain-text tail after the Damage dice
+    // (dmgSplit.rest, just above), so this was a redundant second copy of
+    // the same word, per the user's own request.
     // 2026-09-23: dropped the per-row "✕" delete button here (and the
     // matching blank header-column span above) per the user's own
     // request - every row in this table is auto-regenerated every render
@@ -10205,8 +10242,13 @@ class SpellsTracker extends MarkdownRenderChild {
         renderSlotBoxes(slotsWrap, info, lvl);
       }
       const header = el.createEl("div", { cls: "spell-row spell-row-header" });
-      for (const h of ["Spell", "Time", "Range", "Hit/DC", "Effect"]) {
-        header.createEl("span", { text: h });
+      header.createEl("span", { text: "Spell" });
+      // Time/Range/Hit-DC/Effect share a wrapper with the data rows below
+      // (see ".spell-stats-wrap" in styles.css) so the mobile 2-row layout
+      // can reflow this header the same way it reflows each spell row.
+      const headerStatsWrap = header.createEl("div", { cls: "spell-stats-wrap" });
+      for (const h of ["Time", "Range", "Hit/DC", "Effect"]) {
+        headerStatsWrap.createEl("span", { text: h });
       }
       header.createEl("span", { text: "" });
       header.createEl("span", { text: "" });
@@ -10226,8 +10268,14 @@ class SpellsTracker extends MarkdownRenderChild {
           attr: { "data-link-tags": pTags.map((t) => t.replace(/^#/, "")).join(" ") },
         });
         if (entry.isUpcast) nameSpan.createEl("span", { cls: "spell-upcast-tag", text: " \u2191" });
-        row.createEl("span", { cls: "action-stat", text: this.abbrevTime(p.fm["Casting Time"]) });
-        row.createEl("span", { cls: "action-stat", text: this.shortRange(p.fm["Range / Area"]) });
+        // Time/Range/Hit-DC/Effect live in their own wrapper (instead of as
+        // direct children of .spell-row) purely so a phone-width layout can
+        // drop them onto their own row underneath the spell name/Cast
+        // button - see the mobile ".spell-stats-wrap" rule in styles.css.
+        // Nothing about how these four cells are built or rolled changes.
+        const statsWrap = row.createEl("div", { cls: "spell-stats-wrap" });
+        statsWrap.createEl("span", { cls: "action-stat", text: this.abbrevTime(p.fm["Casting Time"]) });
+        statsWrap.createEl("span", { cls: "action-stat", text: this.shortRange(p.fm["Range / Area"]) });
         // Hit/DC and Effect go through Dice Roller the same way the
         // Actions tab's Hit/Damage cells do (see renderDiceOrText above):
         // an attack spell's "+X" becomes a rollable "1d20+X", and an
@@ -10237,21 +10285,23 @@ class SpellsTracker extends MarkdownRenderChild {
         // text, same as always - there's nothing for this character to
         // roll for either of those.
         const hitDcText = this.formatHitDC(p.fm["Attack / Save"], spellFm);
-        const hitDcCell = row.createEl("span", { cls: "action-stat" }).createEl("span", { cls: "dice-roll-cell" });
+        const hitDcCell = statsWrap.createEl("span", { cls: "action-stat" }).createEl("span", { cls: "dice-roll-cell" });
         await renderDiceOrText(this.app, hitDcCell, attackRollFormula(hitDcText), hitDcText, this, this.mainFile.path);
         const effSplit = damageRollSplit(entry.effectText);
-        const effCell = row.createEl("span", { cls: "action-stat" }).createEl("span", { cls: "dice-roll-cell" });
-        // Just the dice, no trailing damage-type word (e.g. "1d6", not
-        // "1d6 Psychic") - a non-dice effect (Buff/Debuff/Detection/etc.)
-        // is untouched, there's nothing to trim off those.
+        const effCell = statsWrap.createEl("span", { cls: "action-stat" }).createEl("span", { cls: "dice-roll-cell" });
+        // 2026-11-09: restored the trailing damage-type word after the
+        // dice (e.g. "1d6 Psychic", not just "1d6") - same suffix pattern
+        // as the Actions tab's Damage cell (dmgSplit.rest) - per the
+        // user's own request. A non-dice effect (Buff/Debuff/Detection/
+        // etc.) is untouched either way, same as before.
         await renderDiceOrText(
           this.app,
           effCell,
           effSplit ? effSplit.formula : null,
-          entry.effectText,
+          buildRollFallbackText(effSplit, entry.effectText),
           this,
           this.mainFile.path,
-          ""
+          effSplit ? effSplit.rest : ""
         );
         if (!entry.isUpcast) {
           const rm = row.createEl("button", { cls: "action-btn", text: "\u2715" });
@@ -18520,74 +18570,11 @@ class Dnd2024SettingTab extends PluginSettingTab {
           });
       });
 
-    // ---- Party Groups ----
-    // Named PC rosters for the Character Tracker block's party picker (see
-    // CharacterTracker/resolveCharacterTrackerRoster above) - set up once
-    // here, then just pick a group by name in any `character-tracker` note
-    // instead of hand-picking every player every time.
-    containerEl.createEl("h3", { text: "Party Groups" });
-    containerEl.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "Named PC rosters the Character Tracker block (`character-tracker`) can show as cards for. Add every " +
-        "player to a group once here, then pick that group in any character-tracker note. Each block can still " +
-        "add extra individual PCs on top of whichever group it uses, for one-off scenes.",
-    });
-    (this.plugin.settings.partyGroups || []).forEach((group, index) => {
-      const groupWrap = containerEl.createEl("div", { cls: "party-group-settings-block" });
-      const nameSetting = new Setting(groupWrap).setName(`Group ${index + 1}`);
-      nameSetting.addText((text) => {
-        text
-          .setPlaceholder("e.g. Core Four")
-          .setValue(group.name)
-          .onChange(async (value) => {
-            group.name = value;
-            await this.plugin.saveSettings();
-          });
-        text.inputEl.style.width = "100%";
-      });
-      nameSetting.addExtraButton((btn) => {
-        btn
-          .setIcon("trash-2")
-          .setTooltip("Remove group")
-          .onClick(async () => {
-            this.plugin.settings.partyGroups.splice(index, 1);
-            await this.plugin.saveSettings();
-            this.display();
-          });
-      });
-      renderLinkedNoteList(this.app, groupWrap, "", {
-        candidates: getAllPlayerNotes(this.app),
-        entries: group.members || [],
-        datalistId: `party-group-members-${group.id}`,
-        placeholder: "Character name...",
-        addButtonLabel: "Add PC",
-        allowManual: false,
-        emptyText: "No members yet.",
-        onAdd: async (val) => {
-          group.members = group.members || [];
-          group.members.push(val);
-          await this.plugin.saveSettings();
-          this.display();
-        },
-        onRemove: async (entry, idx) => {
-          group.members.splice(idx, 1);
-          await this.plugin.saveSettings();
-          this.display();
-        },
-      });
-    });
-    new Setting(containerEl).addButton((btn) => {
-      btn
-        .setButtonText("Add Party Group")
-        .setCta()
-        .onClick(async () => {
-          this.plugin.settings.partyGroups.push({ id: genId(), name: "New Party", members: [] });
-          await this.plugin.saveSettings();
-          this.display();
-        });
-    });
-
+    // 2026-11-09: moved up here, right after the library folder settings
+    // above, instead of after Party Groups below - these four are config
+    // someone needs to find quickly (especially right after installing
+    // into a fresh vault), not something to hunt for below a whole
+    // roster-management section.
     new Setting(containerEl)
       .setName("Homebrew data folder")
       .setDesc(
@@ -18671,6 +18658,74 @@ class Dnd2024SettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    // ---- Party Groups ----
+    // Named PC rosters for the Character Tracker block's party picker (see
+    // CharacterTracker/resolveCharacterTrackerRoster above) - set up once
+    // here, then just pick a group by name in any `character-tracker` note
+    // instead of hand-picking every player every time.
+    containerEl.createEl("h3", { text: "Party Groups" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Named PC rosters the Character Tracker block (`character-tracker`) can show as cards for. Add every " +
+        "player to a group once here, then pick that group in any character-tracker note. Each block can still " +
+        "add extra individual PCs on top of whichever group it uses, for one-off scenes.",
+    });
+    (this.plugin.settings.partyGroups || []).forEach((group, index) => {
+      const groupWrap = containerEl.createEl("div", { cls: "party-group-settings-block" });
+      const nameSetting = new Setting(groupWrap).setName(`Group ${index + 1}`);
+      nameSetting.addText((text) => {
+        text
+          .setPlaceholder("e.g. Core Four")
+          .setValue(group.name)
+          .onChange(async (value) => {
+            group.name = value;
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.style.width = "100%";
+      });
+      nameSetting.addExtraButton((btn) => {
+        btn
+          .setIcon("trash-2")
+          .setTooltip("Remove group")
+          .onClick(async () => {
+            this.plugin.settings.partyGroups.splice(index, 1);
+            await this.plugin.saveSettings();
+            this.display();
+          });
+      });
+      renderLinkedNoteList(this.app, groupWrap, "", {
+        candidates: getAllPlayerNotes(this.app),
+        entries: group.members || [],
+        datalistId: `party-group-members-${group.id}`,
+        placeholder: "Character name...",
+        addButtonLabel: "Add PC",
+        allowManual: false,
+        emptyText: "No members yet.",
+        onAdd: async (val) => {
+          group.members = group.members || [];
+          group.members.push(val);
+          await this.plugin.saveSettings();
+          this.display();
+        },
+        onRemove: async (entry, idx) => {
+          group.members.splice(idx, 1);
+          await this.plugin.saveSettings();
+          this.display();
+        },
+      });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn
+        .setButtonText("Add Party Group")
+        .setCta()
+        .onClick(async () => {
+          this.plugin.settings.partyGroups.push({ id: genId(), name: "New Party", members: [] });
+          await this.plugin.saveSettings();
+          this.display();
+        });
+    });
 
     // ---- Import from D&D Beyond ----
     containerEl.createEl("h3", { text: "Import from D&D Beyond" });
