@@ -55,6 +55,19 @@ Nothing here is final — every page is still fully editable before you click Cr
 
 ## Installation
 
+### Required community plugins
+
+This plugin's sheet relies on two other community plugins to actually render correctly — tab switching, for example, works through a hidden [Meta Bind](https://www.moritzjung.dev/obsidian-meta-bind-plugin-docs/) button on each tab that runs a small JavaScript snippet via [JS Engine](https://github.com/mProjectsCode/obsidian-js-engine-plugin). Install and enable **both before creating a character**, or the sheet will render incompletely (tabs that don't switch, blank sections, and similar):
+
+1. **Meta Bind** — install and enable it from Settings → Community plugins, then open Meta Bind's own settings tab and turn on its **JavaScript** option (off by default). Without it, Meta Bind refuses to run any of this plugin's `inlineJS` button actions (the tab buttons included).
+2. **JS Engine** — install and enable it the same way. No extra setting to flip here — installed and enabled is enough.
+
+Two more community plugins are optional, each unlocking one feature if installed and enabled: **Dice Roller** (clickable roll buttons on Hit/Damage and Spell Attack/Save numbers — toggle in this plugin's own Settings) and **Iconize**, formerly Icon Folder (assigns an icon to every new character note — set the icon ID in this plugin's own Settings). The sheet works fine without either; you just get plain numbers/no icon instead.
+
+### Obsidian editor setting to turn off
+
+Turn off **Readable line length** (Settings → Editor → Readable line length). With it on, Obsidian caps how wide a note's rendered content is allowed to get, which squeezes this plugin's fixed-width tabs/cards — most visibly the Saving Throws tab, which can end up looking oversized or cut off. This plugin's layout assumes the full note width is available.
+
 ### From Community Plugins (recommended)
 
 1. In Obsidian, go to Settings → Community plugins → Browse.
