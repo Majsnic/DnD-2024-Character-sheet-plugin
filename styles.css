@@ -1245,6 +1245,52 @@
   margin-top: 0;
 }
 
+/* Level name + that level's own slot boxes on one row, D&D Beyond style -
+   replaces the old single "Spell Slots" block that used to sit above the
+   whole spell list. Wraps on narrow screens instead of squeezing. */
+.dnd-sheet .spell-level-header-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 14px;
+  border-bottom: 1px solid var(--dnd-border);
+  padding-bottom: 4px;
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+.dnd-sheet .spell-level-header-row:first-child {
+  margin-top: 0;
+}
+.dnd-sheet .spell-level-header-row .spell-level-header {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0;
+}
+.dnd-sheet .spell-level-slots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dnd-sheet .spell-level-slots-label {
+  font-weight: 600;
+  font-size: 0.68em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dnd-dim);
+}
+.dnd-sheet .spell-level-slots-title {
+  font-size: 0.78em;
+  color: var(--dnd-dim);
+  margin-right: 2px;
+}
+.dnd-sheet .spell-slot-box {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--dnd-accent);
+  cursor: pointer;
+}
+
 /* ===== Spell slot checkboxes (JS-rendered, frontmatter-backed) ===== */
 .dnd-sheet .spell-slots-title {
   font-weight: 600;
@@ -1394,11 +1440,36 @@
    to match D&D Beyond's own Time/Range/Hit-DC/Effect column set ===== */
 .dnd-sheet .spell-row {
   display: grid;
-  grid-template-columns: 1.6fr 46px 85px 65px 1.4fr 18px;
+  grid-template-columns: 1.6fr 46px 85px 65px 1.4fr 18px 46px;
   align-items: center;
   gap: 6px;
   border-bottom: 1px solid var(--dnd-border);
   padding: 5px 2px;
+}
+.dnd-sheet .spell-cast-btn {
+  background: transparent;
+  color: var(--dnd-accent);
+  border: 1px solid var(--dnd-accent);
+  border-radius: 4px;
+  padding: 2px 0;
+  width: 100%;
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  margin: 0;
+}
+.dnd-sheet .spell-cast-btn:hover {
+  background: var(--dnd-accent);
+  color: white;
+}
+.dnd-sheet .spell-cast-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+  color: var(--dnd-accent);
 }
 .dnd-sheet .spell-row-header {
   font-weight: 600;
@@ -2871,9 +2942,20 @@
     font-size: 0.92em;
   }
   .dnd-sheet .spell-row {
-    grid-template-columns: minmax(90px, 1.4fr) 38px 46px 46px minmax(70px, 1fr) 18px;
+    grid-template-columns: minmax(90px, 1.4fr) 38px 46px 46px minmax(70px, 1fr) 18px 40px;
     gap: 4px;
     font-size: 0.92em;
+  }
+  .dnd-sheet .spell-cast-btn {
+    font-size: 0.6em;
+    padding: 2px 0;
+  }
+  /* The level name + its slot boxes already wrap via flex-wrap on
+     .spell-level-header-row; just give the boxes themselves a touch more
+     breathing room at this width, same convention as .exhaustion-row
+     below. */
+  .dnd-sheet .spell-level-header-row {
+    row-gap: 6px;
   }
   .dnd-sheet .inventory-row {
     grid-template-columns: minmax(90px, 1fr) 38px 28px 38px 26px 26px 50px 18px;

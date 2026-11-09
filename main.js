@@ -27,7 +27,7 @@ const CONDITION_INFO = {
 // loadSettings/moveDataFolder below) - every ensure*SubFile() helper and
 // tracker class reads this module-level binding directly rather than
 // threading the setting through every function signature.
-let SHARED_FOLDER = "Compendium/Character Sheet Data";
+let SHARED_FOLDER = "Kompendium/Character Sheet Data";
 
 // Reverse index: main character file path -> that character's companion-
 // folder id (see companionFilePath/ensureDataFolderId near
@@ -85,6 +85,48 @@ const CLASS_OPTIONS = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Pal
 // ancestry belong to" dropdown. buildCharSheetFields below uses this same
 // module-level constant instead of declaring its own local copy.
 const RACE_OPTIONS = ["Dragonborn","Dwarf","Elf","Gnome","Goliath","Halfling","Human","Orc","Tiefling"];
+// Hoisted out of buildCharSheetFields (where both used to be declared
+// locally) to module scope, same rationale/precedent as RACE_OPTIONS right
+// above - applyNonSrdExpansionPack (see readNonSrdBookFiles/loadSettings
+// near syncHomebrewFromSettings) needs to be able to extend both with the
+// author's own non-SRD expansion data at plugin load time, before
+// buildCharSheetFields ever runs.
+// Base walking speed + other movement types per race, used only during
+// character creation (see isCreate under Combat Values in
+// buildCharSheetFields) to auto-fill Base Speed/Movement Types instead of
+// asking the user to type them in. Best-effort, compiled from each race's
+// current official source (its Monsters of the Multiverse entry where one
+// exists and updated the original, otherwise its original sourcebook, or
+// the 2024 PHB for the core species that changed there - Dwarf/Gnome went
+// 25->30) - same "best-effort, treat as a draft" caveat as this file's
+// other built-in game-data tables (SUBCLASS_LEVEL_FEATURES,
+// CANTRIP_CLASS_LIST, etc.).
+const RACE_SPEED_DATA = {
+  // corrected 2026-09-21 to match Astarion's Book of Hungers (was 30)
+  Dragonborn: { speed: 30, movement: "Walking" },
+  Dwarf: { speed: 30, movement: "Walking" },
+  Elf: { speed: 30, movement: "Walking" },
+  Gnome: { speed: 30, movement: "Walking" },
+  Goliath: { speed: 35, movement: "Walking" },
+  Halfling: { speed: 25, movement: "Walking" },
+  Human: { speed: 30, movement: "Walking" },
+  Orc: { speed: 30, movement: "Walking" },
+  Tiefling: { speed: 30, movement: "Walking" },
+};
+const SUBCLASS_MAP = {
+  "Barbarian": ["Berserker"],
+  "Bard": ["College of Lore"],
+  "Cleric": ["Life Domain"],
+  "Druid": ["Circle of the Land"],
+  "Fighter": ["Champion"],
+  "Monk": ["Open Hand"],
+  "Paladin": ["Devotion"],
+  "Ranger": ["Hunter"],
+  "Rogue": ["Thief"],
+  "Sorcerer": ["Draconic Bloodline"],
+  "Warlock": ["Fiend"],
+  "Wizard": ["School of Evocation"]
+};
 // SRD 5.2.1 (Creative Commons) scope, used by the Create Character wizard's
 // Home page "SRD Only" content level. Names match this file's own existing
 // spelling exactly (verified against RACE_OPTIONS/CLASS_OPTIONS/SUBCLASS_MAP/
@@ -438,18 +480,18 @@ const ITEM_CATEGORIES_NEEDING_BASE_NAME = ["Weapon", "Armor", "Shield"];
 const MONSTER_SIZES = ["Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan"];
 const MONSTER_TYPES = ["Aberration","Beast","Celestial","Construct","Dragon","Elemental","Fey","Fiend","Giant","Humanoid","Monstrosity","Ooze","Plant","Undead"];
 const MONSTER_SAVE_ABILITIES = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
-// Feat categories, matching the Feats library's own four subfolders exactly
-// (see buildHomebrewFeatNote/createHomebrewFeatNote) - each maps to a
-// "**Type:**" label and a subfolder under settings.featLibraryFolder. Keyed
-// here by the plain English category name getAllFeatNotes already derives
-// from a note's own "**Type:**" line (see that function's category
-// detection), so a homebrew feat's category is recognized identically to
-// how it would be from any hand-written note.
+// Feat categories, matching the Rysy (Feats) library's own four subfolders
+// exactly (see buildHomebrewFeatNote/createHomebrewFeatNote) - each maps to
+// a Czech/English "**Typ:**" label pair and a subfolder under
+// settings.featLibraryFolder. Keyed here by the plain English category name
+// getAllFeatNotes already derives from a note's own "**Typ:**" line (see
+// that function's category detection), so a homebrew feat's category is
+// recognized identically to how it would be from any hand-written note.
 const FEAT_CATEGORIES = {
-  General: { folder: "General Feats", labelEn: "General Feat" },
-  "Fighting Style": { folder: "Fighting Style Feats", labelEn: "Fighting Style Feat" },
-  "Epic Boon": { folder: "Epic Boons", labelEn: "Epic Boon" },
-  Origin: { folder: "Origin Feats", labelEn: "Origin Feat" },
+  General: { folder: "Obecné rysy (General Feats)", labelCz: "Obecný rys", labelEn: "General Feat" },
+  "Fighting Style": { folder: "Bojové rysy (Fighting Style Feats)", labelCz: "Rys bojového stylu", labelEn: "Fighting Style Feat" },
+  "Epic Boon": { folder: "Epické dary (Epic Boons)", labelCz: "Epický dar", labelEn: "Epic Boon" },
+  Origin: { folder: "Počáteční rysy (Origin Feats)", labelCz: "Rys z počátku", labelEn: "Origin Feat" },
 };
 // Turns every optional `mechanic` object attached to a homebrew subclass
 // feature / race trait / standalone feature (see the Homebrew Content
@@ -635,14 +677,31 @@ function damageForGrantActionLevel(def, level) {
   }
   return result;
 }
+// Official WotC Content (settings.nonSrdClasses/etc - see NONSRD_LIST_KEYS,
+// openOfficialWotcClassWizard/etc, and the Settings tab's own "Official WotC
+// Content" section) is kept in its own separate settings arrays/per-book
+// folder (nonSrdDataFolder), completely apart from actual Homebrew Content -
+// but is merged into these SAME HOMEBREW.* arrays below, each entry tagged
+// `wotc: true`, so every existing lookup that already scans HOMEBREW.classes/
+// subclasses/races/ancestries/features/backgrounds (feature/trait/mechanic
+// resolution, Update Character Sheet/Level Up's option lists, etc.) picks it
+// up for free with no further changes. The `wotc` tag is what the handful of
+// book-FILTER call sites (getBookForRaceName/getBookForClassName/
+// getBookForSubclassName/getBookForBackgroundName/getBookForRaceSubChoice
+// above, and the Features page's visibleHomebrewFeatures filter) check to
+// treat it as official (book === null, Content-Level-gated only) instead of
+// real homebrew (book !== null, gated by the "Use Homebrew Content" filter
+// too) - see those functions for exactly where that distinction is made.
+const withWotcTag = (list) => (list || []).map((entry) => ({ ...entry, wotc: true }));
+
 function syncHomebrewFromSettings(settings) {
   HOMEBREW = {
-    classes: (settings && settings.homebrewClasses) || [],
-    subclasses: (settings && settings.homebrewSubclasses) || [],
-    races: (settings && settings.homebrewRaces) || [],
-    ancestries: (settings && settings.homebrewAncestries) || [],
-    features: (settings && settings.homebrewFeatures) || [],
-    backgrounds: (settings && settings.homebrewBackgrounds) || [],
+    classes: [...((settings && settings.homebrewClasses) || []), ...withWotcTag(settings && settings.nonSrdClasses)],
+    subclasses: [...((settings && settings.homebrewSubclasses) || []), ...withWotcTag(settings && settings.nonSrdSubclasses)],
+    races: [...((settings && settings.homebrewRaces) || []), ...withWotcTag(settings && settings.nonSrdRaces)],
+    ancestries: [...((settings && settings.homebrewAncestries) || []), ...withWotcTag(settings && settings.nonSrdAncestries)],
+    features: [...((settings && settings.homebrewFeatures) || []), ...withWotcTag(settings && settings.nonSrdFeatures)],
+    backgrounds: [...((settings && settings.homebrewBackgrounds) || []), ...withWotcTag(settings && settings.nonSrdBackgrounds)],
     choiceDefs: {},
     ancestryChoiceDefs: {},
     resourceDefs: {},
@@ -651,6 +710,151 @@ function syncHomebrewFromSettings(settings) {
     actionGrantDefs: {},
   };
   Object.assign(HOMEBREW, buildHomebrewMechanicDefs());
+}
+
+// ---------------------------------------------------------------------------
+// Combines every book's richData fragment (see readNonSrdBookFiles above)
+// into one pack object. Array-valued keys concatenate; plain per-key object
+// tables (classLevelFeatures, raceTraits, spellSlotTables, etc.) shallow-
+// merge via Object.assign (each real key - a class/race/spell name - only
+// ever appears in ONE book's fragment in practice, so last-write-wins never
+// actually collides); subclassLevelFeatures is two levels deep (class ->
+// subclass -> level -> features) and needs its own nested merge so two
+// different books both adding subclasses under the same class (e.g. one
+// book's Fighter subclass and another book's different Fighter subclass)
+// combine instead of one overwriting the other's whole class entry.
+function mergeNonSrdRichDataFragments(fragments) {
+  const merged = {};
+  const ARRAY_KEYS = ["classOptions", "raceOptions", "cantripCasters", "fullListPrepareClasses"];
+  for (const key of ARRAY_KEYS) merged[key] = [];
+  merged.subclassMap = {};
+  merged.subclassLevelFeatures = {};
+  for (const frag of fragments) {
+    if (!frag) continue;
+    for (const key of ARRAY_KEYS) {
+      if (Array.isArray(frag[key])) merged[key].push(...frag[key]);
+    }
+    for (const [key, value] of Object.entries(frag)) {
+      if (ARRAY_KEYS.includes(key) || key === "subclassMap" || key === "subclassLevelFeatures") continue;
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        merged[key] = Object.assign(merged[key] || {}, value);
+      } else {
+        merged[key] = value;
+      }
+    }
+    if (frag.subclassMap) {
+      for (const [className, extraNames] of Object.entries(frag.subclassMap)) {
+        merged.subclassMap[className] = [...(merged.subclassMap[className] || []), ...extraNames];
+      }
+    }
+    if (frag.subclassLevelFeatures) {
+      for (const [className, subclasses] of Object.entries(frag.subclassLevelFeatures)) {
+        merged.subclassLevelFeatures[className] = Object.assign(merged.subclassLevelFeatures[className] || {}, subclasses);
+      }
+    }
+  }
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
+// Merges the combined Official WotC Content richData pack (Artificer's full
+// spellcasting progression, every migrated non-SRD race's RACE_SPEED_DATA
+// entry, non-SRD-only spells, Artificer added as an extra caster on some SRD
+// spells/cantrips, etc.) straight into these same built-in module-level
+// tables - the shallow fields (name/description/book/hitDie/traits/
+// features/...) that drive the Settings tab listing and the "Use Homebrew
+// Content" bypass live separately in settings.nonSrdClasses/etc (merged via
+// syncHomebrewFromSettings's wotc-tagged concat into HOMEBREW.* instead -
+// see that function); this is only the DEEP mechanical data a shallow
+// wizard entry was never meant to carry. Called once per loadSettings(),
+// with whatever readNonSrdBookFiles found across every book under
+// nonSrdDataFolder - silently a no-op (plain SRD-only baseline) if that
+// folder is unset/empty/missing, which is the whole point: a Community
+// Plugins "Update" only ever overwrites main.js/styles.css/manifest.json,
+// so pushing a new main.js to a PC with no such folder (or a different one)
+// never requires it to exist and never touches it either way.
+let NONSRD_PACK_APPLIED = false;
+function applyNonSrdExpansionPack(pack) {
+  if (NONSRD_PACK_APPLIED || !pack) return;
+  NONSRD_PACK_APPLIED = true;
+
+  // CLASS_OPTIONS/RACE_OPTIONS/each class's SUBCLASS_MAP entry sort
+  // alphabetically once Official WotC Content is merged in, rather than
+  // trying to preserve any one legacy ordering - a simple, predictable rule
+  // that also correctly covers anything added later through the wizard
+  // (which has no "canonical" position to preserve anyway).
+  if (Array.isArray(pack.classOptions)) {
+    CLASS_OPTIONS.push(...pack.classOptions);
+    CLASS_OPTIONS.sort((a, b) => a.localeCompare(b));
+  }
+  if (Array.isArray(pack.raceOptions)) {
+    RACE_OPTIONS.push(...pack.raceOptions);
+    RACE_OPTIONS.sort((a, b) => a.localeCompare(b));
+  }
+  Object.assign(CLASS_LEVEL_FEATURES, pack.classLevelFeatures);
+  Object.assign(HIT_DICE, pack.hitDice);
+  Object.assign(CLASS_PRIMARY_ABILITY, pack.classPrimaryAbility);
+  Object.assign(CLASS_SAVING_THROWS, pack.classSavingThrows);
+  Object.assign(CLASS_ARMOR_PROFICIENCIES, pack.classArmorProficiencies);
+  Object.assign(CLASS_WEAPON_PROFICIENCIES, pack.classWeaponProficiencies);
+  Object.assign(CLASS_TOOL_PROFICIENCIES, pack.classToolProficiencies);
+  Object.assign(CLASS_DESCRIPTIONS, pack.classDescriptions);
+  Object.assign(CLASS_SKILL_CHOICES, pack.classSkillChoices);
+  Object.assign(CLASS_PROGRESSION, pack.classProgression);
+  Object.assign(SPELLCASTING_ABILITY_BY_CLASS, pack.spellcastingAbilityByClass);
+  Object.assign(CANTRIPS_KNOWN_TABLE, pack.cantripsKnownTable);
+  Object.assign(SPELL_SLOT_TABLES, pack.spellSlotTables);
+  Object.assign(RACE_TRAITS, pack.raceTraits);
+  Object.assign(RACE_DESCRIPTIONS, pack.raceDescriptions);
+  Object.assign(RACE_PROFICIENCIES, pack.raceProficiencies);
+  Object.assign(RACE_LANGUAGES, pack.raceLanguages);
+  Object.assign(RACE_SPEED_DATA, pack.raceSpeedData);
+  Object.assign(RACE_TRAIT_CHOICES, pack.raceTraitChoices);
+
+  // BACKGROUND_OPTIONS is a one-time [...Object.keys(BACKGROUND_DATA_2024),
+  // "Custom"] snapshot taken when this file first loaded, so mutating
+  // BACKGROUND_DATA_2024 alone wouldn't be picked up - insert the new
+  // background names into BACKGROUND_OPTIONS itself too, right before the
+  // trailing "Custom" entry.
+  if (pack.backgroundData2024) {
+    const newBackgroundNames = Object.keys(pack.backgroundData2024);
+    Object.assign(BACKGROUND_DATA_2024, pack.backgroundData2024);
+    const customIdx = BACKGROUND_OPTIONS.indexOf("Custom");
+    BACKGROUND_OPTIONS.splice(customIdx === -1 ? BACKGROUND_OPTIONS.length : customIdx, 0, ...newBackgroundNames);
+  }
+
+  if (pack.subclassLevelFeatures) {
+    for (const [className, extras] of Object.entries(pack.subclassLevelFeatures)) {
+      if (!SUBCLASS_LEVEL_FEATURES[className]) {
+        SUBCLASS_LEVEL_FEATURES[className] = extras; // Artificer: whole class is new
+      } else {
+        Object.assign(SUBCLASS_LEVEL_FEATURES[className], extras);
+      }
+    }
+  }
+  if (pack.subclassMap) {
+    for (const [className, extraNames] of Object.entries(pack.subclassMap)) {
+      if (!SUBCLASS_MAP[className]) SUBCLASS_MAP[className] = []; // Artificer
+      SUBCLASS_MAP[className].push(...extraNames);
+      SUBCLASS_MAP[className].sort((a, b) => a.localeCompare(b));
+    }
+  }
+
+  if (Array.isArray(pack.cantripCasters)) CANTRIP_CASTERS.push(...pack.cantripCasters);
+  if (Array.isArray(pack.fullListPrepareClasses)) FULL_LIST_PREPARE_CLASSES.push(...pack.fullListPrepareClasses);
+
+  Object.assign(CANTRIP_CLASS_LIST, pack.cantripClassListExtra);
+  Object.assign(SPELL_CLASS_LIST, pack.spellClassListExtra);
+  if (pack.extraCastersCantrip) {
+    for (const [spellName, extra] of Object.entries(pack.extraCastersCantrip)) {
+      if (CANTRIP_CLASS_LIST[spellName]) CANTRIP_CLASS_LIST[spellName].push(...extra);
+    }
+  }
+  if (pack.extraCastersSpell) {
+    for (const [spellName, extra] of Object.entries(pack.extraCastersSpell)) {
+      if (SPELL_CLASS_LIST[spellName]) SPELL_CLASS_LIST[spellName].push(...extra);
+    }
+  }
 }
 // All book names currently in use across homebrew Classes/Subclasses/
 // Races/Ancestries/Backgrounds/Features - NOT Feats/Items, which create
@@ -665,6 +869,11 @@ function getHomebrewBookOptions() {
   const books = new Set();
   for (const list of [HOMEBREW.classes, HOMEBREW.subclasses, HOMEBREW.races, HOMEBREW.ancestries, HOMEBREW.backgrounds, HOMEBREW.features]) {
     for (const entry of list) {
+      // Official WotC Content entries (wotc: true - see syncHomebrewFromSettings)
+      // always bypass this "Use Homebrew Content" per-book filter (see
+      // shouldShowBook/getBookForClassName etc.), so their book names are left
+      // out here too - a checkbox for one would do nothing either way.
+      if (entry.wotc) continue;
       const book = (entry.book || "").trim();
       if (book && book !== "Homebrew") books.add(book);
     }
@@ -845,6 +1054,115 @@ async function writeHomebrewBookFiles(adapter, settings) {
     if (!byBook.has(folder.name)) await writeOne(folder.name, emptyHomebrewBookData());
   }
 }
+
+// ---------------------------------------------------------------------------
+// Official WotC Content per-book files (settings.nonSrdDataFolder) - same
+// "<folder>/<Book>/<Book>.json" convention as homebrewDataFolder above, via
+// the same low-level adapter helpers (slugifyHomebrewBookFolder/
+// adapterMkdirp/listHomebrewBookFolders - none of those are actually
+// homebrew-specific, just named from where they were first written), but a
+// DELIBERATELY SEPARATE root folder and settings keys (NONSRD_LIST_KEYS,
+// never HOMEBREW_LIST_KEYS) - this is the plugin author's own official-
+// content expansion (Artificer, non-SRD species/backgrounds/subclasses/
+// spells, and anything added later via "+ Add Official WotC Content"), not
+// anything the user typed into an actual Homebrew wizard, so it's kept out
+// of homebrewDataFolder's own files/listing entirely, per the user's own
+// framing of this feature ("their own folder instead a homebrew one").
+//
+// Each book's JSON file can carry an extra `richData` object alongside its
+// six NONSRD_LIST_KEYS lists - a fragment of the same shape
+// applyNonSrdExpansionPack merges into the built-in module-level tables
+// (classLevelFeatures, raceTraits, spellSlotTables, etc.). This is how
+// migrated bulk content (Artificer's full spellcasting progression, every
+// non-SRD race's RACE_SPEED_DATA entry, etc.) keeps its full mechanical
+// fidelity even though the simple wizard below only ever edits the shallow
+// fields (name/description/book/hitDie/traits/features/...) - editing a
+// migrated entry's shallow fields through the wizard does a plain
+// Object.assign onto the existing object (see persistNonSrd's Edit button),
+// which never touches richData, and writeNonSrdBookFiles below always reads
+// each book's CURRENT richData off disk first and carries it forward
+// unchanged, so a shallow edit can never silently drop it.
+const NONSRD_LIST_KEYS = ["nonSrdClasses", "nonSrdSubclasses", "nonSrdRaces", "nonSrdAncestries", "nonSrdFeatures", "nonSrdBackgrounds"];
+
+function emptyNonSrdBookData() {
+  const data = {};
+  for (const key of NONSRD_LIST_KEYS) data[key] = [];
+  data.richData = {};
+  return data;
+}
+
+async function readNonSrdBookFiles(adapter, rootFolder) {
+  const merged = emptyNonSrdBookData();
+  const richDataFragments = [];
+  const folders = await listHomebrewBookFolders(adapter, rootFolder);
+  for (const folder of folders) {
+    const filePath = `${folder.path}/${folder.name}.json`;
+    if (!(await adapter.exists(filePath))) continue;
+    try {
+      const raw = await adapter.read(filePath);
+      const data = JSON.parse(raw);
+      for (const key of NONSRD_LIST_KEYS) {
+        if (Array.isArray(data[key])) merged[key].push(...data[key]);
+      }
+      if (data.richData && typeof data.richData === "object") richDataFragments.push(data.richData);
+    } catch (e) {
+      console.error(`[D&D 2024 Character Sheet] Failed to parse Official WotC Content book file at "${filePath}" - skipping this book:`, e);
+      new Notice(
+        `D&D 2024 Character Sheet: couldn't read Official WotC Content for "${folder.name}" (see console) - that book's content won't show up until it's fixed.`
+      );
+    }
+  }
+  merged.richData = mergeNonSrdRichDataFragments(richDataFragments);
+  return merged;
+}
+
+async function writeNonSrdBookFiles(adapter, settings) {
+  const rootFolder = (settings.nonSrdDataFolder || "").trim();
+  if (!rootFolder) return;
+
+  const byBook = new Map(); // folder name -> emptyNonSrdBookData()-shaped object
+  for (const key of NONSRD_LIST_KEYS) {
+    for (const entry of settings[key] || []) {
+      const folderName = slugifyHomebrewBookFolder(getHomebrewBookLabel(entry));
+      if (!byBook.has(folderName)) byBook.set(folderName, emptyNonSrdBookData());
+      byBook.get(folderName)[key].push(entry);
+    }
+  }
+
+  await adapterMkdirp(adapter, rootFolder);
+
+  const writeOne = async (folderName, data) => {
+    const folderPath = `${rootFolder}/${folderName}`;
+    await adapterMkdirp(adapter, folderPath);
+    const filePath = `${folderPath}/${folderName}.json`;
+    // Always read this book's CURRENT richData off disk first and carry it
+    // forward unchanged - richData isn't tracked in `settings` at all (only
+    // the shallow NONSRD_LIST_KEYS lists are), so a naive rewrite here would
+    // otherwise silently drop it every time any Official WotC Content entry
+    // is added/edited/deleted anywhere, not just in this one book.
+    let existingRichData = {};
+    if (await adapter.exists(filePath)) {
+      try {
+        const existing = JSON.parse(await adapter.read(filePath));
+        if (existing && existing.richData && typeof existing.richData === "object") existingRichData = existing.richData;
+      } catch (e) {
+        console.error(`[D&D 2024 Character Sheet] Failed to read existing richData at "${filePath}" before rewrite - it will be left empty:`, e);
+      }
+    }
+    data.richData = existingRichData;
+    const json = JSON.stringify(data, null, 2);
+    const current = (await adapter.exists(filePath)) ? await adapter.read(filePath) : null;
+    if (current !== json) await adapter.write(filePath, json);
+  };
+
+  for (const [folderName, data] of byBook.entries()) {
+    await writeOne(folderName, data);
+  }
+  const existingBookFolders = await listHomebrewBookFolders(adapter, rootFolder);
+  for (const folder of existingBookFolders) {
+    if (!byBook.has(folder.name)) await writeOne(folder.name, emptyNonSrdBookData());
+  }
+}
 // Looks up a race/ancestry's traits, checking the built-in RACE_TRAITS
 // table first and falling back to a homebrew race of the same name - then
 // appends a synthetic trait for every homebrew Ancestry (see
@@ -886,7 +1204,7 @@ function getHomebrewSubclassLevelFeatures(className, subclassName) {
 // Where the ribbon "New Character" button looks for a body template to
 // clone, and where new character notes are created if that file can't be
 // found.
-const REFERENCE_TEMPLATE_PATH = "Compendium/character-sheet-template.md";
+const REFERENCE_TEMPLATE_PATH = "Kompendium/character-sheet-template.md";
 
 // The line that marks the boundary between the "mechanical" part of a
 // character note (all the tracker/tab code blocks - never user-editable
@@ -901,7 +1219,7 @@ const MECHANICAL_BODY_END_MARKER = "\n# Backstory";
 // user-editable list of extra headers (and their starting text) appended
 // to the bottom of every newly-created character note.
 const DEFAULT_SETTINGS = {
-  newCharacterFolder: "Compendium",
+  newCharacterFolder: "Kompendium",
   // Where Homebrew Content > Items' "+ Create Homebrew Item Note" wizard
   // creates new item notes (see openHomebrewItemWizard/
   // createHomebrewItemNote) - a real vault note per item, not plugin
@@ -965,6 +1283,31 @@ const DEFAULT_SETTINGS = {
   // every note-scanning plugin exactly like data.json already is, since
   // none of this is meant to be browsed as vault content.
   homebrewDataFolder: "",
+  // Mirrors homebrewDataFolder above, but for Official WotC Content (see
+  // NONSRD_LIST_KEYS/readNonSrdBookFiles/writeNonSrdBookFiles below) -
+  // Classes/Subclasses/Races/Ancestries/Features/Backgrounds added via the
+  // "Official WotC Content" wizard also live in their own per-book
+  // "<this>/<Book Name>/<Book Name>.json" files. Left empty here, it's
+  // filled in automatically at load time (see loadSettings) to a folder
+  // next to this plugin's own data.json, since - unlike Homebrew Content
+  // above - this isn't optional: it replaces the old hardcoded
+  // nonsrd-data.json and needs to always be on, with no Settings step
+  // required, same as before this was ever a per-book folder at all.
+  nonSrdDataFolder: "",
+  // Classes/Subclasses/Races/Ancestries/Features/Backgrounds added through
+  // the "Official WotC Content" wizard (see openOfficialWotcClassWizard
+  // etc. and NONSRD_LIST_KEYS) - tagged `wotc: true` when merged into
+  // HOMEBREW.* by syncHomebrewFromSettings, so they read as official
+  // content (book === null) everywhere instead of actual homebrew. Stored
+  // here only as a data.json fallback before nonSrdDataFolder's per-book
+  // files take over (see loadSettings/saveSettings) - normally empty once
+  // that folder exists.
+  nonSrdClasses: [],
+  nonSrdSubclasses: [],
+  nonSrdRaces: [],
+  nonSrdAncestries: [],
+  nonSrdFeatures: [],
+  nonSrdBackgrounds: [],
   // Where the "Abilities" / "Features" / "Actions" companion files for
   // every character live (this used to be the hardcoded SHARED_FOLDER
   // constant below - it's now this setting instead, applied at load time
@@ -973,7 +1316,7 @@ const DEFAULT_SETTINGS = {
   // metadata cache (which every tracker relies on to read frontmatter)
   // doesn't index files inside .obsidian/, so companion notes kept there
   // would silently stop working.
-  dataFolder: "Compendium/Character Sheet Data",
+  dataFolder: "Kompendium/Character Sheet Data",
   // Icon assigned (via the "Iconize" / obsidian-icon-folder community
   // plugin, if installed) to every newly-created character note. Must be
   // an icon ID that plugin already knows about, e.g. one of its Font
@@ -1000,7 +1343,17 @@ const DEFAULT_SETTINGS = {
   // stay short on a phone can turn it off. Existing homebrew content keeps
   // working everywhere either way - this only hides the wizards themselves.
   mobileHomebrewCreationEnabled: true,
-  customSections: [],
+  customSections: [
+    { heading: "Backstory", content: "Write the character's backstory here." },
+    {
+      heading: "DnD Beyond",
+      content:
+        '<iframe src="" allow="fullscreen" allowfullscreen="" style="height: 100%; width: 100%; aspect-ratio: 1 / 1;"></iframe>',
+    },
+    { heading: "Life Events", content: "- " },
+    { heading: "Cíle", content: "- " },
+    { heading: "Plány DM", content: "- " },
+  ],
   // Homebrew content added in Settings > D&D 2024 Character Sheet >
   // Homebrew Content, via a popup wizard for each of the 4 kinds below
   // (see openHomebrewClassWizard/openHomebrewSubclassWizard/
@@ -2998,7 +3351,7 @@ const CLASS_TOOL_PROFICIENCIES = {
   Monk: ["One Artisan's Tool or Musical Instrument (your choice)"],
   Rogue: ["Thieves' Tools"],
   // Barbarian, Cleric, Fighter, Paladin, Ranger, Sorcerer, Warlock, Wizard
-  // grant no tool proficiency at 1st level - simply absent here.
+  // grant no tool proficiency at 1st level - simply absent here.,
 };
 // Armor/weapon proficiencies granted by a handful of races' own traits -
 // most races grant none at all (see the RACE_TRAITS text for each), so
@@ -3580,6 +3933,23 @@ const DEFAULT_CHARACTER_BODY_LINES = [
   ">> </div>",
   "",
   "---",
+  "",
+  "# Backstory",
+  "Write the character's backstory here.",
+  "",
+  "# DnD Beyond",
+  "<iframe src=\"\" allow=\"fullscreen\" allowfullscreen=\"\" style=\"height: 100%; width: 100%; aspect-ratio: 1 / 1;\"></iframe>",
+  "---",
+  "",
+  "# Life Events",
+  "",
+  "- ",
+  "",
+  "# C\u00edle",
+  "- ",
+  "",
+  "# Pl\u00e1ny DM",
+  "- ",
   "",
 ];
 
@@ -6349,7 +6719,7 @@ function isTemplateNote(app, file) {
 // there's normally no way to tell where on disk it came from, so every
 // portrait pick used to be treated as an external upload and duplicated
 // into the vault via vault.createBinary(), even when the user picked an
-// image that was already sitting right there in e.g. Compendium/. Obsidian
+// image that was already sitting right there in e.g. Kompendium/. Obsidian
 // runs on Electron though, which non-standardly stamps a real absolute
 // filesystem path onto that same File object as `.path` - so on desktop
 // this checks that path against the vault's own on-disk location
@@ -9713,42 +10083,72 @@ class SpellsTracker extends MarkdownRenderChild {
     const needsSplitNamespace = !!warlockEntry && otherCasters.length > 0;
     const usedSlots = spellFm.spell_slots_used || {};
 
-    const renderSlotSection = (title, table, usedKeyPrefix) => {
-      const slotLevels = Object.keys(table)
-        .filter((k) => (table[k] || 0) > 0)
-        .sort((a, b) => Number(a) - Number(b));
-      if (!slotLevels.length) return;
-      el.createEl("div", { cls: "spell-slots-title", text: `Spell Slots \u2014 ${title}` });
-      for (const lvlKey of slotLevels) {
-        const max = table[lvlKey];
+    // Per-level slot pools (usually one; two only for a Warlock multiclassed
+    // with another caster, where standard and pact slots are tracked
+    // separately but can land on the same level number) - keyed by numeric
+    // spell level so the level header loop below can pull its own slots
+    // straight out of this map instead of a separate standalone block.
+    const slotsByLevel = {};
+    const addSlotPool = (table, title, usedKeyPrefix) => {
+      for (const lvlKey of Object.keys(table)) {
+        const max = table[lvlKey] || 0;
+        if (max <= 0) continue;
         const usedKey = usedKeyPrefix ? `${usedKeyPrefix}${lvlKey}` : lvlKey;
-        const usedCount = Math.min(usedSlots[usedKey] || 0, max);
-        const row = el.createEl("div", { cls: "spell-slots-row" });
-        row.createEl("span", { cls: "spell-slots-label", text: this.levelName(Number(lvlKey)) });
-        for (let i = 0; i < max; i++) {
-          const cb = row.createEl("input", { type: "checkbox" });
-          cb.checked = i < usedCount;
-          cb.onclick = async () => {
-            const nowUsed = cb.checked;
-            let resultFm;
-            await this.app.fileManager.processFrontMatter(this.subFile, (fm) => {
-              fm.spell_slots_used = fm.spell_slots_used || {};
-              const cur = fm.spell_slots_used[usedKey] || 0;
-              fm.spell_slots_used[usedKey] = nowUsed ? Math.min(max, cur + 1) : Math.max(0, cur - 1);
-              resultFm = fm;
-            });
-            await this.render(resultFm);
-          };
-        }
+        (slotsByLevel[Number(lvlKey)] = slotsByLevel[Number(lvlKey)] || []).push({ title, max, usedKey });
       }
     };
+    addSlotPool(combinedTable, combinedTitle, needsSplitNamespace ? "std_" : "");
+    addSlotPool(pactTable, pactTitle, needsSplitNamespace ? "pact_" : "");
 
-    if (Object.keys(combinedTable).length) {
-      renderSlotSection(combinedTitle, combinedTable, needsSplitNamespace ? "std_" : "");
-    }
-    if (Object.keys(pactTable).length) {
-      renderSlotSection(pactTitle, pactTable, needsSplitNamespace ? "pact_" : "");
-    }
+    // Shared by the inline level-header slot boxes and nothing else - same
+    // checkbox-per-slot behavior the old standalone block used (checked =
+    // used), just rendered into whatever container the caller gives it.
+    // Does this level have an open slot in any of its pools?
+    const slotRoomAt = (lvl) => {
+      const infos = slotsByLevel[lvl] || [];
+      return infos.some((info) => (usedSlots[info.usedKey] || 0) < info.max);
+    };
+    // Populated as each level's CAST buttons are created below, so a slot
+    // change (from either CAST or a manual checkbox click) can grey out
+    // every row at that level in place, no re-render needed for that
+    // either.
+    const castButtonsByLevel = {};
+    // Re-marks one pool's own boxes as checked/unchecked from its current
+    // usedSlots count, left-to-right ("leftmost N used") - the single
+    // source of truth both the checkbox click below and CAST use, so a
+    // manual click anywhere in the row (including unticking one out of
+    // order) always settles back into the same canonical display, without
+    // needing a full this.render() to force it.
+    const syncSlotBoxes = (info) => {
+      const usedCount = Math.min(usedSlots[info.usedKey] || 0, info.max);
+      (info.boxEls || []).forEach((box, i) => {
+        box.checked = i < usedCount;
+      });
+    };
+
+    const renderSlotBoxes = (container, info, lvl) => {
+      const usedCount = Math.min(usedSlots[info.usedKey] || 0, info.max);
+      info.boxEls = [];
+      for (let i = 0; i < info.max; i++) {
+        const cb = container.createEl("input", { type: "checkbox", cls: "spell-slot-box" });
+        cb.checked = i < usedCount;
+        info.boxEls.push(cb);
+        cb.onclick = async () => {
+          const nowUsed = cb.checked;
+          await this.app.fileManager.processFrontMatter(this.subFile, (fm) => {
+            fm.spell_slots_used = fm.spell_slots_used || {};
+            const cur = fm.spell_slots_used[info.usedKey] || 0;
+            fm.spell_slots_used[info.usedKey] = nowUsed ? Math.min(info.max, cur + 1) : Math.max(0, cur - 1);
+          });
+          usedSlots[info.usedKey] = nowUsed
+            ? Math.min(info.max, (usedSlots[info.usedKey] || 0) + 1)
+            : Math.max(0, (usedSlots[info.usedKey] || 0) - 1);
+          syncSlotBoxes(info);
+          const roomNow = slotRoomAt(lvl);
+          (castButtonsByLevel[lvl] || []).forEach((btn) => { btn.disabled = !roomNow; });
+        };
+      }
+    };
 
     // ---- Spell list, grouped by level, with upcast rows ----
     const spellPaths = (spellFm.spells || []).map((l) => ((l && l.path) ? l.path : l));
@@ -9779,18 +10179,40 @@ class SpellsTracker extends MarkdownRenderChild {
         }
       }
     }
+    // A level can have open slots with no spell of that level known yet
+    // (or upcastable into it) - still give it a header row so its slots
+    // stay visible, same as the old standalone block showed every slot
+    // level regardless of the spell list.
+    for (const lvlKey of Object.keys(slotsByLevel)) {
+      const lvl = Number(lvlKey);
+      if (!grouped[lvl]) grouped[lvl] = [];
+    }
     const levels = Object.keys(grouped).map(Number).sort((a, b) => a - b);
     for (const lvl of levels) {
       grouped[lvl].sort((a, b) => a.page.file.basename.localeCompare(b.page.file.basename));
     }
 
     for (const lvl of levels) {
-      el.createEl("h4", { cls: "spell-level-header", text: this.levelName(lvl) });
+      const levelHeaderRow = el.createEl("div", { cls: "spell-level-header-row" });
+      levelHeaderRow.createEl("h4", { cls: "spell-level-header", text: this.levelName(lvl) });
+      const levelSlotInfos = slotsByLevel[lvl] || [];
+      for (const info of levelSlotInfos) {
+        const slotsWrap = levelHeaderRow.createEl("div", { cls: "spell-level-slots" });
+        if (levelSlotInfos.length > 1) {
+          slotsWrap.createEl("span", { cls: "spell-level-slots-title", text: info.title });
+        }
+        slotsWrap.createEl("span", { cls: "spell-level-slots-label", text: "Slots" });
+        renderSlotBoxes(slotsWrap, info, lvl);
+      }
       const header = el.createEl("div", { cls: "spell-row spell-row-header" });
       for (const h of ["Spell", "Time", "Range", "Hit/DC", "Effect"]) {
         header.createEl("span", { text: h });
       }
       header.createEl("span", { text: "" });
+      header.createEl("span", { text: "" });
+      if (!grouped[lvl].length) {
+        el.createEl("div", { cls: "condition-desc", text: "No known spells at this level yet." });
+      }
       for (const entry of grouped[lvl]) {
         const p = entry.page;
         const row = el.createEl("div", { cls: "spell-row" });
@@ -9819,6 +10241,9 @@ class SpellsTracker extends MarkdownRenderChild {
         await renderDiceOrText(this.app, hitDcCell, attackRollFormula(hitDcText), hitDcText, this, this.mainFile.path);
         const effSplit = damageRollSplit(entry.effectText);
         const effCell = row.createEl("span", { cls: "action-stat" }).createEl("span", { cls: "dice-roll-cell" });
+        // Just the dice, no trailing damage-type word (e.g. "1d6", not
+        // "1d6 Psychic") - a non-dice effect (Buff/Debuff/Detection/etc.)
+        // is untouched, there's nothing to trim off those.
         await renderDiceOrText(
           this.app,
           effCell,
@@ -9826,7 +10251,7 @@ class SpellsTracker extends MarkdownRenderChild {
           entry.effectText,
           this,
           this.mainFile.path,
-          effSplit ? effSplit.rest : ""
+          ""
         );
         if (!entry.isUpcast) {
           const rm = row.createEl("button", { cls: "action-btn", text: "\u2715" });
@@ -9837,6 +10262,68 @@ class SpellsTracker extends MarkdownRenderChild {
               resultFm = fm;
             });
             await this.render(resultFm);
+          };
+        } else {
+          row.createEl("span", { text: "" });
+        }
+        // Cast: tick the next open slot at THIS row's level (an upcast row
+        // spends a slot of the higher level it's listed under, not the
+        // spell's own base level), then - only when this spell's own
+        // Concentration field is set - swap "Concentrating" onto the
+        // Conditions tab, replacing any existing concentration-type
+        // condition there and leaving every other active condition alone.
+        // Cantrips (level 0) have no slots, so they get no button at all.
+        if (lvl > 0) {
+          const castBtn = row.createEl("button", { cls: "spell-cast-btn", text: "Cast" });
+          castBtn.disabled = !slotRoomAt(lvl);
+          (castButtonsByLevel[lvl] = castButtonsByLevel[lvl] || []).push(castBtn);
+          castBtn.onclick = async () => {
+            const infos = slotsByLevel[lvl] || [];
+            let consumed = false;
+            let usedInfo = null;
+            await this.app.fileManager.processFrontMatter(this.subFile, (ffm) => {
+              ffm.spell_slots_used = ffm.spell_slots_used || {};
+              for (const info of infos) {
+                const cur = ffm.spell_slots_used[info.usedKey] || 0;
+                if (cur < info.max) {
+                  ffm.spell_slots_used[info.usedKey] = cur + 1;
+                  consumed = true;
+                  usedInfo = info;
+                  break;
+                }
+              }
+            });
+            if (!consumed) {
+              new Notice(`No ${this.levelName(lvl)} slots left.`);
+              return;
+            }
+            // Fast path - no this.render() here on purpose. A cast never
+            // adds/removes a known spell or changes which levels show, so
+            // the only things that actually need to change on screen are
+            // this one slot box and this level's CAST buttons' disabled
+            // state - updating those directly skips render()'s full
+            // vault-wide #Spell rescan and row/dice-button rebuild, which
+            // was the whole-list 2-3s reload this used to cause on every
+            // cast (including on mobile).
+            usedSlots[usedInfo.usedKey] = (usedSlots[usedInfo.usedKey] || 0) + 1;
+            syncSlotBoxes(usedInfo);
+            const roomNow = slotRoomAt(lvl);
+            (castButtonsByLevel[lvl] || []).forEach((btn) => { btn.disabled = !roomNow; });
+            if (p.fm["Concentration"]) {
+              const conditionsFile = await ensureCharacterFile(
+                this.app,
+                this.mainFile,
+                "Conditions",
+                "---\ncssclasses:\n  - dnd-sheet\nconditions_active: []\nexhaustion_level: 0\n---\n"
+              );
+              let condResultFm = null;
+              await this.app.fileManager.processFrontMatter(conditionsFile, (cfm) => {
+                cfm.conditions_active = (cfm.conditions_active || []).filter((c) => !/^concentrat/i.test(String(c)));
+                cfm.conditions_active.push("Concentrating");
+                condResultFm = cfm;
+              });
+              this.app.workspace.trigger("dnd-sheet:conditions-changed", this.mainFile.path, condResultFm);
+            }
           };
         } else {
           row.createEl("span", { text: "" });
@@ -10395,38 +10882,30 @@ function renderLinkedNoteList(app, containerEl, referenceFilePath, opts) {
   };
 }
 
-// Ability names as they can appear in a #Feat note's own "**Ability Score
-// Increase:**" line (see generate_feats.py / the Feats library) - used to
-// figure out which abilities a given feat's ASI can apply to. Every ability
-// key maps to BOTH its English name and its Czech one, since the official
-// feat library this plugin was originally built against writes this line
-// in Czech ("Zvýšení vlastnosti") - homebrew feats created in English still
-// need to parse correctly against notes from that library, so both forms
-// are always checked rather than just the one the current UI writes.
-const ASI_ABILITY_NAMES = {
-  str: ["Strength", "Síla"],
-  dex: ["Dexterity", "Obratnost"],
-  con: ["Constitution", "Odolnost"],
-  int: ["Intelligence", "Inteligence"],
-  wis: ["Wisdom", "Moudrost"],
-  cha: ["Charisma"],
-};
+// Czech ability names as they appear in a #Feat note's own
+// "**Zvýšení vlastnosti:**" line (see generate_feats.py / the Rysy (Feats)
+// library) - used to figure out which abilities a given feat's ASI can
+// apply to.
+const ASI_ABILITY_CZ = { "Síla": "str", "Obratnost": "dex", "Odolnost": "con", "Inteligence": "int", "Moudrost": "wis", "Charisma": "cha" };
 
-// Parses a feat's free-text "Ability Score Increase" line (e.g. "+1
-// Charisma (max. 20)", "+1 Strength, Dexterity, or Constitution (max. 20)",
-// "+1 to any one ability of your choice (max. 30)") into a plain list of
-// ability keys the Level Up modal's feat picker can offer a +1 to, plus the
-// score cap that applies (20 for a General feat, 30 for an Epic Boon). Not
-// all feats name specific abilities (e.g. Resilient: "an ability score you
-// lack saving throw proficiency in") - those fall back to offering every
-// ability rather than silently dropping the increase.
+// Parses a feat's free-text "Zvýšení vlastnosti" line (e.g. "+1 Charisma
+// (max. 20)", "+1 Sila, Obratnost nebo Odolnost (max. 20)", "+1 k
+// libovolné vlastnosti (max. 30)") into a plain list of ability keys the
+// Level Up modal's feat picker can offer a +1 to, plus the score cap that
+// applies (20 for a General feat, 30 for an Epic Boon). Not all feats name
+// specific abilities (e.g. Resilient: "an ability score you lack saving
+// throw proficiency in") - those fall back to offering every ability
+// rather than silently dropping the increase.
 function parseFeatAsiOptions(asiText) {
   const text = String(asiText || "");
   if (!text) return { abilities: [], max: 20 };
   const max = /max\.\s*30/.test(text) ? 30 : 20;
-  const allAbilities = Object.keys(ASI_ABILITY_NAMES);
-  if (/\bany\b/i.test(text) || /libovoln/i.test(text)) return { abilities: allAbilities, max };
-  const found = allAbilities.filter((key) => ASI_ABILITY_NAMES[key].some((name) => text.includes(name)));
+  const allAbilities = Object.values(ASI_ABILITY_CZ);
+  if (/libovoln/i.test(text)) return { abilities: allAbilities, max };
+  const found = allAbilities.filter((key) => {
+    const cz = Object.keys(ASI_ABILITY_CZ).find((k) => ASI_ABILITY_CZ[k] === key);
+    return text.includes(cz);
+  });
   return { abilities: found.length ? found : allAbilities, max };
 }
 
@@ -11663,43 +12142,11 @@ class InitiativeTracker extends MarkdownRenderChild {
 // `page` is a flat object of current/default values; returns every input
 // reference the caller's Save handler needs to read back.
 function buildCharSheetFields(app, leftCol, rightCol, page, isCreate) {
-  // RACE_OPTIONS is declared at module scope now (see near CLASS_OPTIONS) so
-  // the Settings tab's Homebrew Content -> Ancestries section can read it too.
-  // Base walking speed + other movement types per race, used only during
-  // character creation (see isCreate below under Combat Values) to auto-fill
-  // Base Speed/Movement Types instead of asking the user to type them in.
-  // Best-effort, compiled from each race's current official source (its
-  // Monsters of the Multiverse entry where one exists and updated the
-  // original, otherwise its original sourcebook, or the 2024 PHB for the
-  // core species that changed there - Dwarf/Gnome went 25->30) - same
-  // "best-effort, treat as a draft" caveat as this file's other built-in
-  // game-data tables (SUBCLASS_LEVEL_FEATURES, CANTRIP_CLASS_LIST, etc.).
-  const RACE_SPEED_DATA = {
-  // corrected 2026-09-21 to match Astarion's Book of Hungers (was 30)
-    Dragonborn: { speed: 30, movement: "Walking" },
-  Dwarf: { speed: 30, movement: "Walking" },
-  Elf: { speed: 30, movement: "Walking" },
-  Gnome: { speed: 30, movement: "Walking" },
-  Goliath: { speed: 35, movement: "Walking" },
-  Halfling: { speed: 25, movement: "Walking" },
-  Human: { speed: 30, movement: "Walking" },
-  Orc: { speed: 30, movement: "Walking" },
-  Tiefling: { speed: 30, movement: "Walking" },
-};
-  const SUBCLASS_MAP = {
-    "Barbarian": ["Berserker"],
-    "Bard": ["College of Lore"],
-    "Cleric": ["Life Domain"],
-    "Druid": ["Circle of the Land"],
-    "Fighter": ["Champion"],
-    "Monk": ["Open Hand"],
-    "Paladin": ["Devotion"],
-    "Ranger": ["Hunter"],
-    "Rogue": ["Thief"],
-    "Sorcerer": ["Draconic Bloodline"],
-    "Warlock": ["Fiend"],
-    "Wizard": ["School of Evocation"]
-  };
+  // RACE_OPTIONS/RACE_SPEED_DATA/SUBCLASS_MAP are all declared at module
+  // scope now (see near CLASS_OPTIONS) so the Settings tab's Homebrew
+  // Content -> Ancestries section, and applyNonSrdExpansionPack's merge of
+  // the author's own non-SRD expansion data (see readNonSrdBookFiles),
+  // can read/extend them too.
   const ALIGNMENT_OPTIONS = ["Lawfull Good","Neutral Good","Chaotic Good","Lawfull Neutral","True Neutral","Chaotic Neutral","Lawfull Evil","Neutral Evil","Chaotic Evil"];
 
   const textField = (container, label, value) => {
@@ -15133,7 +15580,7 @@ class OverviewTracker extends MarkdownRenderChild {
         if (q.mode === "prepare") {
           section.createEl("div", {
             cls: "wizard-spell-hint",
-            text: "This class re-prepares its spells from its whole class list after every Long Rest. Select which ones are prepared for today - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster), minimum 1.",
+            text: "This class re-prepares its spells from its whole class list after every Long Rest. Select which ones are prepared for today - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster or Artificer), minimum 1.",
           });
         }
 
@@ -16453,7 +16900,81 @@ function renderMechanicEditor(parentEl, holder) {
   renderBody();
 }
 
-function openHomebrewClassWizard(existing, onSave) {
+// Fixed list offered by the Book field of the "Official WotC Content"
+// wizards below (openOfficialWotcClassWizard etc.) - unlike Homebrew
+// Content's freeform Book text field, this is real official WotC
+// sourcebook names only, so an entry's Book always identifies an actual
+// published source instead of whatever a player typed. Covers every
+// sourcebook that actually contains player-facing Classes/Subclasses/
+// Species/Backgrounds/Feats content (adventure modules and Unearthed
+// Arcana playtest material are deliberately left off this list).
+const OFFICIAL_WOTC_BOOKS = [
+  "Player's Handbook (2024)",
+  "Dungeon Master's Guide (2024)",
+  "Monster Manual (2024)",
+  "Player's Handbook (2014)",
+  "Dungeon Master's Guide (2014)",
+  "Monster Manual (2014)",
+  "Sword Coast Adventurer's Guide",
+  "Volo's Guide to Monsters",
+  "Xanathar's Guide to Everything",
+  "Mordenkainen's Tome of Foes",
+  "Guildmasters' Guide to Ravnica",
+  "Eberron: Rising from the Last War",
+  "Wayfinder's Guide to Eberron",
+  "Mythic Odysseys of Theros",
+  "Acquisitions Incorporated",
+  "Explorer's Guide to Wildemount",
+  "Tasha's Cauldron of Everything",
+  "Van Richten's Guide to Ravenloft",
+  "Fizban's Treasury of Dragons",
+  "Strixhaven: A Curriculum of Chaos",
+  "Mordenkainen Presents: Monsters of the Multiverse",
+  "The Wild Beyond the Witchlight",
+  "Spelljammer: Adventures in Space",
+  "Journeys through the Radiant Citadel",
+  "Keys from the Golden Vault",
+  "Bigby Presents: Glory of the Giants",
+  "Planescape: Adventures in the Multiverse",
+  "Quests from the Infinite Staircase",
+  "Vecna: Eve of Ruin",
+];
+
+// Shared Book field for the 6 wizard functions below - a freeform text
+// input when bookOptions is omitted (Homebrew Content's own wizards,
+// exactly like before this existed), or a fixed <select> of real
+// sourcebook names when bookOptions is passed (the "Official WotC
+// Content" wizards - see OFFICIAL_WOTC_BOOKS above and
+// openOfficialWotcClassWizard etc.) - the Book field is the only thing
+// that differs between the two wizard systems, so this one helper is
+// shared by both instead of forking all 6 functions into two copies
+// each. Returns a `getValue()` the caller's Save handler reads instead
+// of reaching into a specific input/select directly.
+function renderBookField(modal, existing, bookOptions) {
+  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
+  if (bookOptions && bookOptions.length) {
+    bookRow.createEl("span", { cls: "action-modal-label", text: "Book" });
+    const bookSelect = bookRow.createEl("select");
+    const opts = [...bookOptions];
+    // An entry edited after its original book was removed from the fixed
+    // list still shows its actual saved value instead of silently
+    // snapping to a different book.
+    if (existing && existing.book && !opts.includes(existing.book)) opts.unshift(existing.book);
+    for (const b of opts) {
+      const opt = bookSelect.createEl("option", { text: b });
+      opt.value = b;
+    }
+    bookSelect.value = (existing && existing.book) || opts[0] || "";
+    return { getValue: () => bookSelect.value };
+  }
+  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
+  const bookInput = bookRow.createEl("input", { type: "text" });
+  bookInput.value = existing ? existing.book || "" : "";
+  bookInput.placeholder = "e.g. Grizelda's Guide to Ghosthunting - leave blank to file under \"Homebrew\"";
+  return { getValue: () => bookInput.value.trim() };
+}
+
+function openHomebrewClassWizard(existing, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew" });
@@ -16465,11 +16986,7 @@ function openHomebrewClassWizard(existing, onSave) {
   nameInput.value = existing ? existing.name : "";
   nameInput.placeholder = "e.g. Alchemist";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   // Shown alongside Hit Die/Primary Ability/Saves/Features on the Create
   // Character and Update Character wizards' Class page (see
@@ -16509,7 +17026,7 @@ function openHomebrewClassWizard(existing, onSave) {
     onSave({
       id: (existing && existing.id) || genId(),
       name,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: descInput.value,
       hitDie: Number(dieSelect.value) || 8,
     });
@@ -16523,7 +17040,7 @@ function openHomebrewClassWizard(existing, onSave) {
 // directly so the caller (the Settings tab) controls exactly what's
 // offered, same as the existing allClassNamesForSubclass local it already
 // builds for this purpose.
-function openHomebrewSubclassWizard(existing, classOptions, onSave) {
+function openHomebrewSubclassWizard(existing, classOptions, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew action-modal-wide" });
@@ -16554,11 +17071,7 @@ function openHomebrewSubclassWizard(existing, classOptions, onSave) {
   nameInput.value = existing ? existing.name : "";
   nameInput.placeholder = "e.g. Path of the Wrathful Spirit";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   // Shown above "Features at Level X" on the Create Character and Update
   // Character wizards' Class page once this subclass is chosen (see
@@ -16633,7 +17146,7 @@ function openHomebrewSubclassWizard(existing, classOptions, onSave) {
       id: (existing && existing.id) || genId(),
       className: classSelect.value,
       name,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: subclassDescInput.value,
       features: features.filter((f) => f.name && f.name.trim()).map((f) => ({ ...f, name: f.name.trim() })),
     });
@@ -16642,7 +17155,7 @@ function openHomebrewSubclassWizard(existing, classOptions, onSave) {
   activeDocument.body.appendChild(overlay);
 }
 
-function openHomebrewRaceWizard(existing, onSave) {
+function openHomebrewRaceWizard(existing, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew action-modal-wide" });
@@ -16662,11 +17175,7 @@ function openHomebrewRaceWizard(existing, onSave) {
   nameInput.value = existing ? existing.name : "";
   nameInput.placeholder = "e.g. Nethereese Construct";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   // Shown alongside Speed/Traits on the Create Character and Update
   // Character wizards' Species page (see getRaceDescription's homebrew
@@ -16731,7 +17240,7 @@ function openHomebrewRaceWizard(existing, onSave) {
     onSave({
       id: (existing && existing.id) || genId(),
       name,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: raceDescInput.value,
       traits: traits.filter((t) => t.name && t.name.trim()).map((t) => ({ ...t, name: t.name.trim() })),
     });
@@ -16751,7 +17260,7 @@ function openHomebrewRaceWizard(existing, onSave) {
 // back onto the named race as a synthetic trait at read time instead, and
 // findRaceSubChoiceTrait/resolveRaceSubChoice give it the same "dedicated
 // dropdown right after Race" treatment as a built-in Ancestry choice.
-function openHomebrewAncestryWizard(existing, raceOptions, onSave) {
+function openHomebrewAncestryWizard(existing, raceOptions, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew action-modal-wide" });
@@ -16780,11 +17289,7 @@ function openHomebrewAncestryWizard(existing, raceOptions, onSave) {
   nameInput.value = existing ? existing.traitName : "";
   nameInput.placeholder = "e.g. Draconic Ancestry";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
   descBlock.createEl("span", { cls: "action-modal-label", text: "Description (shown before a choice is made)" });
@@ -16840,7 +17345,7 @@ function openHomebrewAncestryWizard(existing, raceOptions, onSave) {
       id: (existing && existing.id) || genId(),
       raceName: raceSelect.value,
       traitName,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: descInput.value,
       hint: hintInput.value.trim(),
       options: cleanOptions,
@@ -16850,7 +17355,7 @@ function openHomebrewAncestryWizard(existing, raceOptions, onSave) {
   activeDocument.body.appendChild(overlay);
 }
 
-function openHomebrewFeatureWizard(existing, onSave) {
+function openHomebrewFeatureWizard(existing, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew" });
@@ -16866,11 +17371,7 @@ function openHomebrewFeatureWizard(existing, onSave) {
   nameInput.value = existing ? existing.name : "";
   nameInput.placeholder = "e.g. Boon of the Wandering Spirit";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
   descBlock.createEl("span", { cls: "action-modal-label", text: "Description" });
@@ -16894,7 +17395,7 @@ function openHomebrewFeatureWizard(existing, onSave) {
     onSave({
       id: (existing && existing.id) || genId(),
       name,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: descInput.value,
       mechanic: mechanicHolder.mechanic,
     });
@@ -17036,6 +17537,35 @@ ___
 >![[object.png|right wm-sm]]
 ${bodyText}
 <span class="clearfix"></span>
+
+> [!column|flex 3]
+> > [!hint]- LIDÉ
+> > \`\`\`base
+> > properties:
+> >   file.name:
+> >     displayName: Name
+> > views:
+> >   - type: table
+> >     name: Name
+> >     filters:
+> >       and:
+> >         - file.inFolder("Dungeons & Dragons/01. Kampaň/1. Master Plan/NPC")
+> >         - file.hasLink(this.file)
+> > \`\`\`
+>
+>> [!note]- HISTORIE
+> > \`\`\`base
+> > properties:
+> >   file.name:
+> >     displayName: Name
+> > views:
+> >   - type: table
+> >     name: Session Notes
+> >     filters:
+> >       and:
+> >         - file.inFolder("Dungeons & Dragons/01. Kampaň/1. Master Plan/Deník")
+> >         - file.hasLink(this.file)
+> > \`\`\`
 `;
   return note;
 }
@@ -17085,7 +17615,7 @@ function openHomebrewItemWizard(onDone) {
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
     text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official SRD/library items - so you can tell them apart at a glance.",
@@ -17304,43 +17834,49 @@ function openHomebrewItemWizard(onDone) {
 
 // ---- Homebrew feat notes ----
 // Same "real vault file, not plugin settings" idea as the item notes above,
-// but matching the Feats library's own format instead of the item
+// but matching the Rysy (Feats) library's own format instead of the item
 // library's - see FEAT_CATEGORIES for the four category subfolders and
 // getAllFeatNotes (near the top of this file) for the exact "**Label:**"
 // line syntax and #Feat tag this has to reproduce so a homebrew feat is
 // found by the Level Up "Take a Feat instead" picker exactly like an
-// official one. Writes a plain English-only note - getAllFeatNotes already
-// reads "**Type:**"/"**Prerequisite:**"/etc. (falling back to the official
-// library's own Czech labels only for notes that still use them), so a
-// note built here needs no bilingual split of its own.
+// official one. Per the user's own choice when this phase was scoped
+// (full bilingual, matching the library), this always writes both a Czech
+// and an English side, unlike the Item wizard which has no such split.
 //
 // As of 2026-09-25 this also prepends a small YAML frontmatter block - the
 // ONLY thing that distinguishes a homebrew feat note's shape from an
-// official Feats library entry (which has no frontmatter at all) - carrying
-// `tags: [Homebrew]` and a `source:` field, so both are real properties
-// Dataview/Bases can filter on, not just body text. The existing inline
-// `#Feat` tag and body `*Source: ...*` citation line are unchanged (every
-// feat, official or homebrew, still has both); "Homebrew" itself just moved
-// from an inline tag to frontmatter per the user's own request, since
-// Obsidian's tag search treats a frontmatter list tag and an inline
-// hashtag identically for `getAllTags`/`tags.includes("#Feat")` detection
-// either way, so nothing else needed to change to keep the picker's
-// official/homebrew feat lookup working.
+// official Rysy (Feats) library entry (which has no frontmatter at all) -
+// carrying `tags: [Homebrew]` and a `source:` field, so both are real
+// properties Dataview/Bases can filter on, not just body text. The
+// existing inline `#Feat` tag and body `*Zdroj: ...*` citation line are
+// unchanged (every feat, official or homebrew, still has both); "Homebrew"
+// itself just moved from an inline tag to frontmatter per the user's own
+// request, since Obsidian's tag search treats a frontmatter list tag and
+// an inline hashtag identically for `getAllTags`/`tags.includes("#Feat")`
+// detection either way, so nothing else needed to change to keep the
+// picker's official/homebrew feat lookup working.
 function buildHomebrewFeatNote(data) {
   const cat = FEAT_CATEGORIES[data.category] || FEAT_CATEGORIES.General;
   const source = data.source || "Homebrew";
   const lines = ["---", "tags:", "  - Homebrew", `source: ${yamlQuote(source)}`, "---", ""];
-  lines.push(`# ${data.name}`, "");
-  lines.push(`**Type:** ${cat.labelEn}`);
-  if (data.prereq) lines.push(`**Prerequisite:** ${data.prereq}`);
-  lines.push(`**Repeatable:** ${data.repeatable ? "Yes" : "No"}`);
-  if (data.asi) lines.push(`**Ability Score Increase:** ${data.asi}`);
+  lines.push(`# ${data.nameCz} (${data.nameEn})`, "");
+  lines.push(`**Typ:** ${cat.labelCz} *(${cat.labelEn})*`);
+  if (data.prereqCz) lines.push(`**Předpoklad:** ${data.prereqCz}`);
+  lines.push(`**Opakovatelný:** ${data.repeatable ? "Ano" : "Ne"}`);
+  if (data.asiCz) lines.push(`**Zvýšení vlastnosti:** ${data.asiCz}`);
   lines.push("");
-  lines.push(String(data.description || "").trim());
+  lines.push(String(data.descriptionCz || "").trim());
   lines.push("");
-  lines.push(`*Source: ${source}*`);
+  lines.push(`*Zdroj: ${source}*`);
   lines.push("");
   lines.push("#Feat");
+  lines.push("");
+  lines.push("---");
+  lines.push("## English");
+  lines.push("");
+  if (data.prereqEn) lines.push(`**Prerequisite:** ${data.prereqEn}`);
+  lines.push("");
+  lines.push(String(data.descriptionEn || "").trim());
   lines.push("");
   return lines.join("\n");
 }
@@ -17358,8 +17894,8 @@ function openHomebrewFeatWizard(onDone) {
   modal.createEl("p", {
     cls: "setting-item-description",
     text:
-      "Creates a real note in your vault, formatted and tagged exactly like every other feat in your library - " +
-      'the Level Up "Take a Feat instead" picker will offer it immediately, no reload needed.',
+      "Creates a real bilingual note in your vault, formatted and tagged exactly like every other feat in your " +
+      'library - the Level Up "Take a Feat instead" picker will offer it immediately, no reload needed.',
   });
 
   const row = (label) => {
@@ -17368,39 +17904,47 @@ function openHomebrewFeatWizard(onDone) {
     return r;
   };
 
-  const nameInput = row("Name").createEl("input", { type: "text" });
-  nameInput.placeholder = "e.g. Arcane Spiritualist";
+  const nameCzInput = row("Name (Czech)").createEl("input", { type: "text" });
+  nameCzInput.placeholder = "e.g. Arkánní Spiritualista";
+  const nameEnInput = row("Name (English)").createEl("input", { type: "text" });
+  nameEnInput.placeholder = "e.g. Arcane Spiritualist";
 
   const categorySelect = row("Category").createEl("select");
   for (const key of Object.keys(FEAT_CATEGORIES)) {
-    const opt = categorySelect.createEl("option", { text: FEAT_CATEGORIES[key].labelEn });
+    const opt = categorySelect.createEl("option", { text: `${FEAT_CATEGORIES[key].labelEn} (${FEAT_CATEGORIES[key].labelCz})` });
     opt.value = key;
   }
 
-  const prereqInput = row("Prerequisite (optional)").createEl("input", { type: "text" });
-  prereqInput.placeholder = "e.g. Level 4+; Strength 13+ or Dexterity 13+";
+  const prereqCzInput = row("Prerequisite (Czech, optional)").createEl("input", { type: "text" });
+  prereqCzInput.placeholder = "e.g. Úroveň 4+; Síla 13+ nebo Obratnost 13+";
+  const prereqEnInput = row("Prerequisite (English, optional)").createEl("input", { type: "text" });
+  prereqEnInput.placeholder = "e.g. Level 4+; Strength 13+ or Dexterity 13+";
 
   const repeatRow = row("Repeatable");
   const repeatCheckbox = repeatRow.createEl("input", { type: "checkbox" });
 
-  const asiRow = row("Ability Score Increase (optional)");
+  const asiRow = row("Ability Score Increase (Czech, optional)");
   const asiInput = asiRow.createEl("input", { type: "text" });
-  asiInput.placeholder = "e.g. +1 Intelligence, Wisdom, or Charisma (max. 20)";
+  asiInput.placeholder = "e.g. +1 Inteligence, Moudrost nebo Charisma (max. 20)";
   asiRow.createEl("span", {
     cls: "setting-item-description",
     text: "General Feats grant an ability score increase; Origin/Fighting Style/Epic Boon feats usually leave this blank.",
   });
 
-  const descBlock = modal.createEl("div", { cls: "feature-desc-block" });
-  descBlock.createEl("span", { cls: "action-modal-label", text: "Description" });
-  const descInput = descBlock.createEl("textarea", { cls: "feature-desc-textarea" });
+  const descCzBlock = modal.createEl("div", { cls: "feature-desc-block" });
+  descCzBlock.createEl("span", { cls: "action-modal-label", text: "Description (Czech)" });
+  const descCzInput = descCzBlock.createEl("textarea", { cls: "feature-desc-textarea" });
+
+  const descEnBlock = modal.createEl("div", { cls: "feature-desc-block" });
+  descEnBlock.createEl("span", { cls: "action-modal-label", text: "Description (English)" });
+  const descEnInput = descEnBlock.createEl("textarea", { cls: "feature-desc-textarea" });
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
-    text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official Feats library entries - so you can tell them apart at a glance.",
+    text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike your official Rysy (Feats) library entries - so you can tell them apart at a glance.",
   });
 
   const errorEl = modal.createEl("div", { cls: "homebrew-wizard-error" });
@@ -17409,18 +17953,22 @@ function openHomebrewFeatWizard(onDone) {
   const cancelBtn = btnRow.createEl("button", { text: "Cancel" });
   cancelBtn.onclick = () => overlay.remove();
   saveBtn.onclick = () => {
-    const name = nameInput.value.trim();
-    if (!name) {
-      errorEl.setText("Please enter a name.");
+    const nameCz = nameCzInput.value.trim();
+    const nameEn = nameEnInput.value.trim();
+    if (!nameCz || !nameEn) {
+      errorEl.setText("Please enter both a Czech and an English name.");
       return;
     }
     const data = {
-      name,
+      nameCz,
+      nameEn,
       category: categorySelect.value,
-      prereq: prereqInput.value.trim(),
+      prereqCz: prereqCzInput.value.trim(),
+      prereqEn: prereqEnInput.value.trim(),
       repeatable: repeatCheckbox.checked,
-      asi: asiInput.value.trim(),
-      description: descInput.value,
+      asiCz: asiInput.value.trim(),
+      descriptionCz: descCzInput.value,
+      descriptionEn: descEnInput.value,
       source: sourceInput.value.trim(),
     };
     overlay.remove();
@@ -17553,7 +18101,7 @@ function openHomebrewMonsterWizard(onDone) {
 
   const sourceRow = row("Source (optional)");
   const sourceInput = sourceRow.createEl("input", { type: "text" });
-  sourceInput.placeholder = "e.g. Shadowfen Bestiary - blank saves as \"Homebrew\"";
+  sourceInput.placeholder = "e.g. Grizelda's Guide to Ghost Hunting - blank saves as \"Homebrew\"";
   sourceRow.createEl("span", {
     cls: "setting-item-description",
     text: "This note always gets a Homebrew tag and this Source as real frontmatter properties (filterable in Dataview/Bases), unlike an official bestiary monster.",
@@ -17627,7 +18175,7 @@ function openHomebrewMonsterWizard(onDone) {
   const condImmuneInput = condImmuneRow.createEl("input", { type: "text" });
   condImmuneRow.createEl("span", {
     cls: "setting-item-description",
-    text: 'Plain text is fine, or paste real vault wikilinks (e.g. "[[Frightened]]") to match how this vault\'s other bestiary notes cross-link conditions.',
+    text: 'Plain text is fine, or paste real vault wikilinks (e.g. "[[Vystrašený (Frightened)|Frightened]]") to match how this vault\'s other bestiary notes cross-link conditions.',
   });
   const sensesRow = row("Senses");
   const sensesInput = sensesRow.createEl("input", { type: "text" });
@@ -17754,7 +18302,7 @@ function openHomebrewMonsterWizard(onDone) {
 // suggestions - it stays a plain text field since a background's Origin
 // Feat doesn't have to exist in this vault yet to be saved (see
 // getBackgroundExtraFeatures' own fallback for a not-yet-present feat).
-function openHomebrewBackgroundWizard(existing, allFeatNames, onSave) {
+function openHomebrewBackgroundWizard(existing, allFeatNames, onSave, bookOptions) {
   const overlay = activeDocument.createElement("div");
   overlay.className = "action-modal-overlay";
   const modal = overlay.createEl("div", { cls: "action-modal action-modal-homebrew action-modal-wide" });
@@ -17776,11 +18324,7 @@ function openHomebrewBackgroundWizard(existing, allFeatNames, onSave) {
   nameInput.value = existing ? existing.name : "";
   nameInput.placeholder = "e.g. Ghost Hunter";
 
-  const bookRow = modal.createEl("div", { cls: "action-modal-row" });
-  bookRow.createEl("span", { cls: "action-modal-label", text: "Book (optional)" });
-  const bookInput = bookRow.createEl("input", { type: "text" });
-  bookInput.value = existing ? existing.book || "" : "";
-  bookInput.placeholder = "e.g. Shadowfen Bestiary - leave blank to file under \"Homebrew\"";
+  const bookField = renderBookField(modal, existing, bookOptions);
 
   // Shown under the Background dropdown on the Create Character wizard
   // (see the backgroundDescStatus block in buildCharSheetFields) - same
@@ -17868,7 +18412,7 @@ function openHomebrewBackgroundWizard(existing, allFeatNames, onSave) {
     onSave({
       id: (existing && existing.id) || genId(),
       name,
-      book: bookInput.value.trim(),
+      book: bookField.getValue(),
       description: descInput.value,
       abilities,
       skills,
@@ -17933,7 +18477,7 @@ class Dnd2024SettingTab extends PluginSettingTab {
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. TTRPG/Items")
+          .setPlaceholder("e.g. Dungeons & Dragons/06. Tradice, Frakce & Předměty/Předměty")
           .setValue(this.plugin.settings.itemLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.itemLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -17945,13 +18489,13 @@ class Dnd2024SettingTab extends PluginSettingTab {
       .setName("Feat library folder")
       .setDesc(
         'Where Homebrew Content > Feats\' "+ Create Homebrew Feat Note" wizard files new feat notes - point this ' +
-          "at the folder that directly CONTAINS the four category subfolders (General Feats, Fighting Style " +
-          'Feats, Epic Boons, Origin Feats) - each new feat lands in the right one automatically (e.g. ' +
-          '"<this>/General Feats/Feat Name.md"), matching the official Feats library\'s own layout.'
+          "at the folder that directly CONTAINS the four category subfolders (Obecné rysy, Bojové rysy, Epické " +
+          'dary, Počáteční rysy) - each new feat lands in the right one automatically (e.g. "<this>/Obecné rysy ' +
+          '(General Feats)/Rys (Feat).md"), matching the official Rysy (Feats) library\'s own layout.'
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. TTRPG/Rules/Feats")
+          .setPlaceholder("e.g. Dungeons & Dragons/02. Pravidla/Oficiální pravidla D&D/Rysy (Feats)")
           .setValue(this.plugin.settings.featLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.featLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -17964,11 +18508,11 @@ class Dnd2024SettingTab extends PluginSettingTab {
       .setDesc(
         'Where Homebrew Content > Monsters\' "+ Create Homebrew Monster Note" wizard files new monster notes - ' +
           "all homebrew monsters are filed flat into this one folder regardless of type, matching this vault's " +
-          "own \"Homebrew Monsters\"-style bestiary layout (no per-type subfolder)."
+          "own \"Homebrew Příšery\"-style bestiary layout (no per-type subfolder)."
       )
       .addText((text) => {
         text
-          .setPlaceholder("e.g. TTRPG/Bestiary/Homebrew Monsters")
+          .setPlaceholder("e.g. Dungeons & Dragons/04. Kniha příšer/Homebrew Příšery")
           .setValue(this.plugin.settings.monsterLibraryFolder)
           .onChange(async (value) => {
             this.plugin.settings.monsterLibraryFolder = value.replace(/\/+$/, "").trim();
@@ -18561,6 +19105,266 @@ class Dnd2024SettingTab extends PluginSettingTab {
       });
     });
 
+    // ---------------------------------------------------------------------
+    // Official WotC Content - a second, parallel set of Classes/Subclasses/
+    // Races/Ancestries/Backgrounds/Features lists (settings.nonSrdClasses
+    // etc - see NONSRD_LIST_KEYS/syncHomebrewFromSettings/
+    // applyNonSrdExpansionPack near the top of this file), stored and
+    // wizard-edited exactly like Homebrew Content above, with one
+    // difference: Book is a fixed dropdown of real WotC sourcebook names
+    // (OFFICIAL_WOTC_BOOKS) instead of freeform text, and every entry here
+    // is tagged `wotc: true` when merged into HOMEBREW.* - so it reads as
+    // official content (gated only by Content Level, never by "Use
+    // Homebrew Content"/per-book filters) everywhere a built-in Class/
+    // Race/Subclass/Background already does. This is for the plugin
+    // author's own official-content expansion (Artificer, the non-SRD
+    // species/backgrounds/subclasses, etc. - see nonsrd-data folder above)
+    // and for anything else actually published by WotC that this plugin
+    // doesn't otherwise know about - never for homebrew, which belongs in
+    // the Homebrew Content section above instead.
+    containerEl.createEl("h3", { text: "Official WotC Content" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Same idea as Homebrew Content above, but for real WotC-published Classes/Subclasses/Species/Ancestries/" +
+        "Backgrounds/Features this plugin doesn't already know about - pick which real sourcebook each one is from " +
+        "instead of typing a book name. Everything added here shows up in the Create Character and Update " +
+        "Character Sheet wizards exactly like a built-in option (gated only by Content Level, never by \"Use " +
+        "Homebrew Content\") - use the Homebrew Content section above instead for anything home-made.",
+    });
+
+    const persistNonSrd = async () => {
+      await this.plugin.saveSettings();
+      this.display();
+    };
+
+    // -- Classes --
+    containerEl.createEl("h4", { text: "Classes" });
+    this.plugin.settings.nonSrdClasses.forEach((cls, index) => {
+      new Setting(containerEl)
+        .setName(cls.name || "(unnamed)")
+        .setDesc(`Hit Die: d${cls.hitDie || 8} · Book: ${getHomebrewBookLabel(cls)}`)
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(() => {
+              openHomebrewClassWizard(cls, async (data) => {
+                Object.assign(cls, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove class")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdClasses.splice(index, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Class").onClick(() => {
+        openHomebrewClassWizard(null, async (data) => {
+          this.plugin.settings.nonSrdClasses.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
+    // -- Subclasses --
+    containerEl.createEl("h4", { text: "Subclasses" });
+    const allClassNamesForWotcSubclass = [...CLASS_OPTIONS, ...this.plugin.settings.nonSrdClasses.map((c) => c.name)];
+    this.plugin.settings.nonSrdSubclasses.forEach((sub, index) => {
+      const featCount = (sub.features || []).length;
+      new Setting(containerEl)
+        .setName(sub.name || "(unnamed)")
+        .setDesc(`${sub.className || "(no class)"} - ${featCount} feature${featCount === 1 ? "" : "s"} · Book: ${getHomebrewBookLabel(sub)}`)
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(() => {
+              openHomebrewSubclassWizard(sub, allClassNamesForWotcSubclass, async (data) => {
+                Object.assign(sub, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove subclass")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdSubclasses.splice(index, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Subclass").onClick(() => {
+        openHomebrewSubclassWizard(null, allClassNamesForWotcSubclass, async (data) => {
+          this.plugin.settings.nonSrdSubclasses.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
+    // -- Races --
+    containerEl.createEl("h4", { text: "Races" });
+    this.plugin.settings.nonSrdRaces.forEach((race, raceIndex) => {
+      if (!Array.isArray(race.traits)) race.traits = [];
+      const traitCount = race.traits.length;
+      new Setting(containerEl)
+        .setName(race.name || "(unnamed)")
+        .setDesc(`${traitCount} trait${traitCount === 1 ? "" : "s"} · Book: ${getHomebrewBookLabel(race)}`)
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(() => {
+              openHomebrewRaceWizard(race, async (data) => {
+                Object.assign(race, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove race")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdRaces.splice(raceIndex, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Race").onClick(() => {
+        openHomebrewRaceWizard(null, async (data) => {
+          this.plugin.settings.nonSrdRaces.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
+    // -- Ancestries --
+    containerEl.createEl("h4", { text: "Ancestries" });
+    const currentWotcRaceOptions = () => [...RACE_OPTIONS, ...this.plugin.settings.nonSrdRaces.map((r) => r.name)];
+    this.plugin.settings.nonSrdAncestries.forEach((anc, ancIndex) => {
+      const optCount = (anc.options || []).length;
+      new Setting(containerEl)
+        .setName(anc.traitName || "(unnamed)")
+        .setDesc(`${anc.raceName || "(no race)"} - ${optCount} option${optCount === 1 ? "" : "s"} · Book: ${getHomebrewBookLabel(anc)}`)
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(() => {
+              openHomebrewAncestryWizard(anc, currentWotcRaceOptions(), async (data) => {
+                Object.assign(anc, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove ancestry")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdAncestries.splice(ancIndex, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Ancestry").onClick(() => {
+        openHomebrewAncestryWizard(null, currentWotcRaceOptions(), async (data) => {
+          this.plugin.settings.nonSrdAncestries.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
+    // -- Backgrounds --
+    containerEl.createEl("h4", { text: "Backgrounds" });
+    this.plugin.settings.nonSrdBackgrounds.forEach((bg, bgIndex) => {
+      new Setting(containerEl)
+        .setName(bg.name || "(unnamed)")
+        .setDesc(`${(bg.abilities || []).map((a) => a.toUpperCase()).join("/")} - ${(bg.skills || []).join(", ")} · Book: ${getHomebrewBookLabel(bg)}`)
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(async () => {
+              const allFeatNotes = await getAllFeatNotes(this.app);
+              openHomebrewBackgroundWizard(bg, allFeatNotes.map((f) => f.nameEn), async (data) => {
+                Object.assign(bg, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove background")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdBackgrounds.splice(bgIndex, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Background").onClick(async () => {
+        const allFeatNotes = await getAllFeatNotes(this.app);
+        openHomebrewBackgroundWizard(null, allFeatNotes.map((f) => f.nameEn), async (data) => {
+          this.plugin.settings.nonSrdBackgrounds.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
+    // -- Features --
+    containerEl.createEl("h4", { text: "Features" });
+    this.plugin.settings.nonSrdFeatures.forEach((feat, index) => {
+      new Setting(containerEl)
+        .setName(feat.name || "(unnamed)")
+        .setDesc(
+          (feat.mechanic ? `Mechanic: ${feat.mechanic.type === "choice" ? "Choice from a list" : "Limited-use resource"}` : "No mechanic") +
+            ` · Book: ${getHomebrewBookLabel(feat)}`
+        )
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("pencil")
+            .setTooltip("Edit")
+            .onClick(() => {
+              openHomebrewFeatureWizard(feat, async (data) => {
+                Object.assign(feat, data);
+                await persistNonSrd();
+              }, OFFICIAL_WOTC_BOOKS);
+            });
+        })
+        .addExtraButton((btn) => {
+          btn
+            .setIcon("trash-2")
+            .setTooltip("Remove feature")
+            .onClick(async () => {
+              this.plugin.settings.nonSrdFeatures.splice(index, 1);
+              await persistNonSrd();
+            });
+        });
+    });
+    new Setting(containerEl).addButton((btn) => {
+      btn.setButtonText("+ Add Feature").onClick(() => {
+        openHomebrewFeatureWizard(null, async (data) => {
+          this.plugin.settings.nonSrdFeatures.push(data);
+          await persistNonSrd();
+        }, OFFICIAL_WOTC_BOOKS);
+      });
+    });
+
     // -- Items --
     // Unlike Classes/Subclasses/Races/Ancestries/Features above, there's no
     // persisted list here to edit afterward - each click creates a real
@@ -18979,20 +19783,51 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
       const merged = await readHomebrewBookFiles(this.app.vault.adapter, homebrewRoot);
       for (const key of HOMEBREW_LIST_KEYS) this.settings[key] = merged[key];
     }
+    // Same fallback as customSections/HOMEBREW_LIST_KEYS above, for anyone
+    // upgrading from a data.json that predates the Official WotC Content
+    // per-book system (see NONSRD_LIST_KEYS/readNonSrdBookFiles below).
+    for (const key of NONSRD_LIST_KEYS) {
+      if (!Array.isArray(this.settings[key])) this.settings[key] = [];
+    }
+    // Unlike homebrewDataFolder above, this is never meant to stay empty -
+    // Official WotC Content (Artificer, the non-SRD species/backgrounds/
+    // subclasses, etc.) always lived right next to data.json with no
+    // Settings step needed (see the old hardcoded nonsrd-data.json this
+    // replaces), so a blank setting is filled in here with that same
+    // location instead of leaving the content with nowhere to live.
+    if (!this.settings.nonSrdDataFolder) {
+      const dir = (this.manifest && this.manifest.dir) || ".obsidian/plugins/onednd-character-sheet";
+      this.settings.nonSrdDataFolder = `${dir}/nonsrd-data`;
+    }
+    const nonSrdRoot = this.settings.nonSrdDataFolder.trim();
+    let nonSrdRichData = null;
+    if (nonSrdRoot) {
+      const merged = await readNonSrdBookFiles(this.app.vault.adapter, nonSrdRoot);
+      for (const key of NONSRD_LIST_KEYS) this.settings[key] = merged[key];
+      nonSrdRichData = merged.richData;
+    }
     SHARED_FOLDER = this.settings.dataFolder || DEFAULT_SETTINGS.dataFolder;
     syncHomebrewFromSettings(this.settings);
+    applyNonSrdExpansionPack(nonSrdRichData);
   }
 
   async saveSettings() {
     const homebrewRoot = (this.settings.homebrewDataFolder || "").trim();
     if (homebrewRoot) {
       await writeHomebrewBookFiles(this.app.vault.adapter, this.settings);
-      // Kept out of data.json once a homebrew data folder is set - the
-      // per-book files above are the persisted copy; this.settings itself
-      // (and therefore HOMEBREW/the wizards) keeps the real in-memory
-      // arrays, only what actually hits disk here is emptied.
+    }
+    const nonSrdRoot = (this.settings.nonSrdDataFolder || "").trim();
+    if (nonSrdRoot) {
+      await writeNonSrdBookFiles(this.app.vault.adapter, this.settings);
+    }
+    if (homebrewRoot || nonSrdRoot) {
+      // Kept out of data.json once a per-book folder is set - the per-book
+      // files above are the persisted copy; this.settings itself (and
+      // therefore HOMEBREW/the wizards) keeps the real in-memory arrays,
+      // only what actually hits disk here is emptied.
       const toPersist = Object.assign({}, this.settings);
-      for (const key of HOMEBREW_LIST_KEYS) toPersist[key] = [];
+      if (homebrewRoot) for (const key of HOMEBREW_LIST_KEYS) toPersist[key] = [];
+      if (nonSrdRoot) for (const key of NONSRD_LIST_KEYS) toPersist[key] = [];
       await this.saveData(toPersist);
     } else {
       await this.saveData(this.settings);
@@ -19291,21 +20126,27 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
     // since this function alone has no way to know which race/class/
     // subclass/background it's being asked about.
     const shouldShowBook = (book) => (thirdPartyEnabled || ALWAYS_VISIBLE_HOMEBREW_BOOKS.has(book)) && enabledBooks.has(book);
+    // A `wotc: true` entry (see syncHomebrewFromSettings's tagged merge of
+    // settings.nonSrdClasses/etc into these same HOMEBREW.* arrays) is
+    // Official WotC Content, not actual homebrew - it reads as official
+    // (book === null, same as a built-in class/race/subclass/background)
+    // so it's only ever hidden by switching Content Level to "SRD Only",
+    // never by this Homebrew book filter.
     const getBookForRaceName = (name) => {
       const hb = HOMEBREW.races.find((r) => r.name === name);
-      return hb ? getHomebrewBookLabel(hb) : null;
+      return hb && !hb.wotc ? getHomebrewBookLabel(hb) : null;
     };
     const getBookForClassName = (name) => {
       const hb = HOMEBREW.classes.find((c) => c.name === name);
-      return hb ? getHomebrewBookLabel(hb) : null;
+      return hb && !hb.wotc ? getHomebrewBookLabel(hb) : null;
     };
     const getBookForSubclassName = (className, name) => {
       const hb = HOMEBREW.subclasses.find((s) => s.className === className && s.name === name);
-      return hb ? getHomebrewBookLabel(hb) : null;
+      return hb && !hb.wotc ? getHomebrewBookLabel(hb) : null;
     };
     const getBookForBackgroundName = (name) => {
       const hb = HOMEBREW.backgrounds.find((b) => b.name === name);
-      return hb ? getHomebrewBookLabel(hb) : null;
+      return hb && !hb.wotc ? getHomebrewBookLabel(hb) : null;
     };
     // The Ancestry sub-choice dropdown (Draconic Ancestry/Elven Lineage-
     // style, right after Race - see findRaceSubChoiceTrait/raceSubChoiceRow
@@ -19324,6 +20165,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
       if (!sub) return undefined; // no Ancestry sub-choice for this race at all
       if (RACE_TRAIT_CHOICES[sub.key]) return null; // built-in => official
       const anc = HOMEBREW.ancestries.find((a) => a.raceName === raceName && a.traitName === sub.traitName);
+      if (anc && anc.wotc) return null; // Official WotC Content => official, same as a built-in choice
       return anc ? getHomebrewBookLabel(anc) : "Homebrew";
     };
     // The Species/Class pickers below are searchable card lists driven off
@@ -19489,7 +20331,13 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
     // verbatim per the user's own wording. A book with no blurb here (e.g.
     // a brand new one just added in Settings) simply shows no description
     // line, only its live content counts.
-    const HOMEBREW_BOOK_BLURBS = {};
+    const HOMEBREW_BOOK_BLURBS = {
+      "Kamon Corebook": "A feudal-Japan-themed setting book — new species, classes, subclasses, backgrounds, and traditions inspired by Japanese mythology and history.",
+      "The Black Ballad": "A gothic afterlife-themed sourcebook centered on the Sunless Crossing and its godless, gargoyle, and undead-adjacent species.",
+      "Grizelda's Guide to Ghost Hunting": "A ghost-hunting sourcebook — subclasses, backgrounds, and feats built around tracking and battling the undead.",
+      "Creed's Codex: Arcane Secrets of the Summoners": "A dedicated Summoner class sourcebook, with subclasses built around different summoned-ally archetypes.",
+      "Bloodpunk": "A punk-rebellion-themed sourcebook.",
+    };
     // "N species, N classes, ..." with the right singular/plural noun per
     // category, skipping any category whose count is 0 (e.g. Bloodpunk only
     // contributes a subclass, so its line reads just "Adds 1 subclass.").
@@ -20578,7 +21426,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
         if (q.mode === "prepare") {
           section.createEl("div", {
             cls: "wizard-spell-hint",
-            text: "This class re-prepares its spells from its whole class list after every Long Rest. Choose which ones are prepared for day one - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster), minimum 1.",
+            text: "This class re-prepares its spells from its whole class list after every Long Rest. Choose which ones are prepared for day one - the cap below is your spellcasting ability modifier plus your class level (half level, rounded down, for a half caster or Artificer), minimum 1.",
           });
         }
 
@@ -21337,7 +22185,11 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
       // shouldShowBook's own ALWAYS_VISIBLE_HOMEBREW_BOOKS carve-out above
       // entirely. shouldShowBook already re-checks thirdPartyEnabled itself
       // for every other book, so nothing non-Eberron becomes newly visible.
-      const visibleHomebrewFeatures = HOMEBREW.features.filter((hf) => shouldShowBook(getHomebrewBookLabel(hf)));
+      // A `wotc: true` feature (Official WotC Content, see
+      // syncHomebrewFromSettings) always passes this filter regardless of
+      // thirdPartyEnabled/enabledBooks, same as it bypasses the book filter
+      // everywhere else - it's official content, not actual homebrew.
+      const visibleHomebrewFeatures = HOMEBREW.features.filter((hf) => hf.wotc || shouldShowBook(getHomebrewBookLabel(hf)));
       if (visibleHomebrewFeatures.length) {
         const hbRow = page4El.createEl("div", { cls: "action-modal-row" });
         const hbSelect = hbRow.createEl("select", { cls: "action-modal-name" });
@@ -21608,7 +22460,7 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
   }
 
   // Creates a new character note pre-wired with the same tracker blocks as
-  // the reference template (Compendium/character-sheet-template.md), so it
+  // the reference template (Kompendium/character-sheet-template.md), so it
   // renders as a working character sheet right away. Falls back to a
   // built-in copy of that body if the reference template can't be found.
   // The mechanical part (everything up to the "# Backstory" marker) always
@@ -21973,7 +22825,9 @@ tags:
   // Called from Homebrew Content > Feats' "+ Create Homebrew Feat Note"
   // button - same shape of method as createHomebrewItemNote above, but
   // filing into a category subfolder (see FEAT_CATEGORIES) under
-  // settings.featLibraryFolder instead of a rarity subfolder.
+  // settings.featLibraryFolder instead of a rarity subfolder, and using the
+  // note's own bilingual "Czech Name (English Name)" filename convention
+  // (see buildHomebrewFeatNote/getAllFeatNotes) instead of a single name.
   async createHomebrewFeatNote(data) {
     const libraryFolder = (this.settings && this.settings.featLibraryFolder) || "";
     if (!libraryFolder) {
@@ -21995,7 +22849,7 @@ tags:
       }
     }
 
-    const safeBaseName = String(data.name || "").replace(/[\\/:*?"<>|]/g, "").trim() || "Homebrew Feat";
+    const safeBaseName = `${data.nameCz} (${data.nameEn})`.replace(/[\\/:*?"<>|]/g, "").trim() || "Homebrew Feat";
     let fileName = safeBaseName;
     let filePath = `${categoryFolder}/${fileName}.md`;
     let counter = 2;
