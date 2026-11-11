@@ -22,6 +22,8 @@ A full walkthrough — installing the plugin (and its one required dependency), 
 - D&D Beyond character importer (Settings tab).
 - PDF export, built around the official 2014-style character sheet PDF layout.
 - Level-up flow wired to Ability Score Improvement / Feat choices.
+- **New in 1.9.0 — Atlas VTT support:** characters show up in [Atlas VTT](https://community.obsidian.md/plugins/atlas-vtt) as statblocks, with a compact tabbed layout and clickable slot/uses/death-save boxes that sync back to the sheet. See below.
+- **New in 1.9.0 — Unused character data cleanup:** finds data folders no character uses any more and moves them to a `_Deleted` folder.
 
 ### For Beginners quick-start
 
@@ -108,6 +110,22 @@ If you want the fuller character creator with more species/classes/subclasses, y
 **Known limitation:** the Sorcerer (Draconic Sorcery) and Wizard (Evoker) subclasses were rewritten feature-by-feature against the official SRD 5.2.1 text and should be accurate. The other 10 subclasses use feature names/levels carried over from this plugin's original, older data (some may reflect 2014-edition wording/levels rather than the 2024 SRD phrasing) — the subclass *names* are all correct 2024-SRD choices, but their feature text hasn't yet been individually verified byte-for-byte against the SRD. Treat those 10 as "close, but worth double-checking" rather than guaranteed word-for-word.
 
 The item library also intentionally contains **only** base equipment and generically-named magic item templates — no uniquely-named magic items (Bag of Holding, Ioun Stones, artifacts, etc.). The spell and monster libraries, by contrast, reproduce the SRD's actual spell/stat-block text in full, since the SRD's Creative Commons license explicitly permits that.
+
+## Atlas VTT
+
+If the [Atlas VTT](https://community.obsidian.md/plugins/atlas-vtt) plugin is installed, every character gets a hidden statblock copy, `<Name> (Atlas).md`, inside its own folder in the character data folder. Point a token's statblock at it (Atlas: "Import tokens from Fantasy Statblocks", or right-click a token → "Change statblock…") and Ctrl+hover the token to open it.
+
+- The copy updates automatically whenever the sheet changes. Edit the sheet, not the copy.
+- It uses its own compact, one-column template, "One DnD Character (Compact)", written to `atlas-vtt/statblock-templates/`. Ability scores, AC, initiative and speed are always visible. Everything else sits in tabs: Actions, Spells, Skills, Features, Inventory, Defenses, Background.
+- Spell slots, limited uses, death saves and Heroic Inspiration show as checkboxes. To make them clickable, turn on **Statblock editor** in Atlas: press Space on a map → "Experimental features". Ticking a box in Atlas updates the character sheet. Atlas' Short rest and Long rest buttons work too.
+- Settings → Atlas VTT has a switch to turn this off, and a "Sync now" button. There's also a command, "Sync all characters to Atlas VTT".
+- Limits: spent hit dice exist only in Atlas, because the sheet doesn't track them. A Warlock multiclassed with another spellcaster keeps pact and regular slots apart, so Atlas slot clicks don't reach the sheet for those characters.
+
+The compact template is based on the 5E (2024) character template from [DnD Beyond Importer for Atlas](https://community.obsidian.md/plugins/dndbeyond-importer-for-atlas) by young-george (MIT).
+
+## Cleaning up unused character data
+
+Run the command "Clean up unused character sheet data", or use Settings → Character data folder → "Unused character data → Check". It lists data folders that no note uses any more, plus loose files from the old pre-folder layout. If you confirm, it moves them to `<data folder>/_Deleted/` and deletes nothing. Deleting a character sheet now also removes its data folder more reliably.
 
 ## Reporting bugs
 

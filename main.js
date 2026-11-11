@@ -1,4 +1,4 @@
-const { Plugin, MarkdownRenderChild, getAllTags, Notice, Modal, Setting, PluginSettingTab, TFile, TFolder, MarkdownRenderer, requestUrl, Platform } = require("obsidian");
+const { Plugin, MarkdownRenderChild, getAllTags, Notice, Modal, Setting, PluginSettingTab, TFile, TFolder, MarkdownRenderer, requestUrl, Platform, stringifyYaml } = require("obsidian");
 
 // Short mechanical reminders, standard 5e 2024 rules - same summaries as
 // the previous dataviewjs version. zeroSpeed marks conditions that
@@ -1267,6 +1267,10 @@ const DEFAULT_SETTINGS = {
   // whichever group it selects (stored per-note as party_overrides, not
   // here).
   partyGroups: [],
+  // Atlas VTT integration (see AtlasCharacterSync): when the Atlas VTT
+  // plugin is installed, keep an Atlas statblock companion file for every
+  // character up to date. Has no effect without Atlas installed.
+  atlasSync: true,
   // When set, Classes/Subclasses/Races/Ancestries/Features/Backgrounds
   // (see HOMEBREW_LIST_KEYS/writeHomebrewBookFiles/readHomebrewBookFiles
   // above) are no longer stored inline in this data.json - instead each
@@ -18629,6 +18633,11 @@ class Dnd2024SettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName("Unused character data")
+      .setDesc("Find data folders that no longer belong to any character or note, and move them to a _Deleted folder inside the data folder.")
+      .addButton((b) => b.setButtonText("Check").onClick(() => openUnusedCharacterDataCleanup(this.app)));
+
+    new Setting(containerEl)
       .setName("New character icon")
       .setDesc(
         'Icon ID assigned to every new character note (requires the "Iconize" community plugin - ' +
@@ -18772,6 +18781,32 @@ class Dnd2024SettingTab extends PluginSettingTab {
             }
           });
       });
+
+    containerEl.createEl("h3", { text: "Atlas VTT" });
+    const atlasSync = this.plugin.atlasSync;
+    const atlasInstalled = !!(atlasSync && atlasSync.isAtlasInstalled());
+    new Setting(containerEl)
+      .setName("Show characters in Atlas VTT")
+      .setDesc(
+        atlasInstalled
+          ? "Keeps an Atlas statblock of every character up to date, stored with the character's sheet data, so you can drop characters into Atlas scenes as tokens. " +
+              "Syncing is one-way: anything edited on the Atlas copy is replaced on the next sync. " +
+              "Uses the 5e (2024) character template from the \"DnD Beyond Importer for Atlas\" plugin by young-george."
+          : "Atlas VTT isn't installed or enabled in this vault, so this does nothing yet."
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.atlasSync !== false).onChange(async (v) => {
+          this.plugin.settings.atlasSync = v;
+          await this.plugin.saveSettings();
+          if (v && atlasSync) atlasSync.syncAll(true);
+        })
+      );
+    if (atlasInstalled) {
+      new Setting(containerEl)
+        .setName("Sync all characters now")
+        .setDesc("Characters also sync on their own whenever their sheet changes and when Obsidian starts.")
+        .addButton((b) => b.setButtonText("Sync now").onClick(() => atlasSync.syncAll(true)));
+    }
 
     containerEl.createEl("h3", { text: "Extra sections" });
     containerEl.createEl("p", {
@@ -19488,6 +19523,857 @@ class Dnd2024SettingTab extends PluginSettingTab {
   }
 }
 
+// ---- Atlas VTT integration ----
+//
+// Makes every character sheet visible to the Atlas VTT plugin as a
+// statblock, the same way the community "DnD Beyond Importer for Atlas"
+// plugin (young-george, MIT licence) does for D&D Beyond characters:
+// Atlas treats any note whose frontmatter has `statblock: true` plus an
+// `atlas-template: <id>` as a statblock and reads every other value straight
+// from that note's frontmatter, laid out by the named template.
+//
+// Unlike that importer, nothing is added to the character's own main note
+// (its frontmatter was deliberately slimmed down - see the companion-file
+// migration). Instead each character gets one more companion file,
+// "<data folder>/<id>/Atlas.md", regenerated from the sheet's own saved
+// data whenever the main note or any of its companion files changes. The
+// sheet stays the only source of truth: the sync is one-way, and anything
+// edited on the Atlas copy itself is overwritten on the next sync.
+//
+// The character template ("One DnD Character (Compact)") is this plugin's
+// own one-column, tabbed rearrangement of the importer's "5E (2024 rules)
+// character sheet" template, itself derived by Atlas VTT from SRD 5.2.1
+// (CC BY 4.0 - the attribution travels inside the template's own `source`
+// block). It's laid out like the sheet's mobile view: name, AC/Initiative/
+// Speed and ability scores always visible, everything else behind tabs
+// (Actions first). It is written to Atlas's template library folder when
+// missing, and replaced only when ATLAS_TEMPLATE_REVISION goes up.
+
+const ATLAS_PLUGIN_ID = "atlas-vtt";
+// Atlas only accepts template ids of the form "<slug>-<6 lowercase letters/digits>".
+const ATLAS_TEMPLATE_ID = "onednd-character-compact-od5e24";
+// Ids an earlier build of this plugin wrote (rejected by Atlas) - replaced on sight.
+const ATLAS_LEGACY_TEMPLATE_IDS = ["onednd-character-compact"];
+const ATLAS_TEMPLATE_FOLDER = "atlas-vtt/statblock-templates";
+const ATLAS_TEMPLATE_FILE = `${ATLAS_TEMPLATE_FOLDER}/One DnD Character (Compact).atlastemplate`;
+// Bumped whenever ATLAS_CHARACTER_TEMPLATE's layout changes, so an older copy
+// this plugin wrote is replaced - see ensureTemplate().
+const ATLAS_TEMPLATE_REVISION = 2;
+const ATLAS_NOTE_KIND = "Atlas";
+const ATLAS_SYNC_DELAY_MS = 1500;
+// The Atlas copy is named after the character ("Echo (Atlas).md") so it's
+// recognisable in Atlas' own statblock pickers and note lists, which show
+// and search note names/paths. The " (Atlas)" suffix keeps it from sharing
+// a name with the character note itself, so [[Echo]] links stay unambiguous.
+const ATLAS_NOTE_SUFFIX = " (Atlas)";
+function isAtlasCompanionName(fileName) {
+  return fileName === `${ATLAS_NOTE_KIND}.md` || fileName.endsWith(`${ATLAS_NOTE_SUFFIX}.md`);
+}
+function atlasNoteFileName(characterName) {
+  const clean = String(characterName || "").replace(/[\\/:*?"<>|#^\[\]]/g, "-").trim() || ATLAS_NOTE_KIND;
+  return `${clean}${ATLAS_NOTE_SUFFIX}.md`;
+}
+const ATLAS_SPELL_LEVEL_FIELDS = ["spellcasting", "tab_2", "tab_3", "tab_4", "tab_5", "tab_6", "tab_7", "tab_8", "tab_9", "tab_10"];
+const ATLAS_SKILL_MARK = { half: "⬖", prof: "◆", expertise: "❖" };
+const ATLAS_ABILITY_LABEL = { int: "Int", wis: "Wis", cha: "Cha", str: "Str", dex: "Dex", con: "Con" };
+
+const ATLAS_CHARACTER_TEMPLATE = {"format": "atlas-statblock-template", "version": 1, "id": "onednd-character-compact-od5e24", "description": "One DnD Character Sheet - compact 5E (2024) character statblock for Atlas VTT, laid out like the sheet's mobile view", "diceSetId": "builtin:d20", "derivedFrom": {"templateId": "builtin:5e-2024-monster", "revision": 5}, "source": {"system": "5E (2024 rules)", "label": "SRD 5.2.1 · CC BY 4.0", "licences": ["CC-BY-4.0"], "attribution": "This work includes material from the System Reference Document 5.2.1 (\"SRD 5.2.1\") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.", "licenceUrl": "https://creativecommons.org/licenses/by/4.0/legalcode", "sourceUrl": "https://www.dndbeyond.com/srd", "modification": "Atlas VTT arranged the stat block structure as an editable template. Edited by the Discord of Atlas VTT. Rearranged into a compact one-column layout with tabs by the One DnD Character Sheet plugin (layout revision 2), based on the \"5E (2024 rules) character sheet\" template from the DnD Beyond Importer for Atlas plugin by young-george (MIT)."}, "fields": [{"key": "name", "label": "Character Name", "type": "text"}, {"key": "image", "label": "Portrait", "type": "image"}, {"key": "species", "label": "Species", "type": "text", "meaning": "creature-type"}, {"key": "background", "label": "Background", "type": "text"}, {"key": "class", "label": "Class", "type": "text"}, {"key": "subclass", "label": "Subclass", "type": "text"}, {"key": "level", "label": "Level", "type": "rating", "meaning": "rating"}, {"key": "xp", "label": "Experience Points", "type": "number"}, {"key": "size", "label": "Size", "type": "choice", "meaning": "size", "options": ["Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan"], "open": true}, {"key": "alignment", "label": "Alignment", "type": "text"}, {"key": "heroic_inspiration", "label": "Heroic Inspiration", "type": "counters", "counterRows": [{"name": "Inspiration", "max": 1}]}, {"key": "ac", "label": "Armor Class", "type": "number", "meaning": "armor"}, {"key": "initiative", "label": "Initiative", "type": "number", "meaning": "initiative"}, {"key": "speed", "label": "Speed", "type": "number", "unit": "ft."}, {"key": "pb", "label": "Proficiency Bonus", "type": "number", "fallback": "{=floor((level - 1) / 4) + 2}"}, {"key": "hp", "label": "HP", "type": "number", "meaning": "hit-points"}, {"key": "hit_dice", "label": "Hit Point Dice", "type": "dice"}, {"key": "hit_dice_spent", "label": "Hit Point Dice Spent", "type": "number"}, {"key": "hit_dice_pool", "label": "Hit Dice", "type": "counters", "counterRows": []}, {"key": "death_save_success", "label": "Death Saves: Success", "type": "counters", "counterRows": [{"name": "Success", "max": 3}]}, {"key": "death_save_failure", "label": "Death Saves: Failure", "type": "counters", "counterRows": [{"name": "Failure", "max": 3}]}, {"key": "stats", "label": "Abilities", "type": "scores", "slots": ["Str", "Dex", "Con", "Int", "Wis", "Cha"], "slotKeys": ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"], "rows": [[null, null, null, null, null, null]], "addRows": false, "addColumns": false}, {"key": "saves", "label": "Saving Throws", "type": "pairs"}, {"key": "bonus_dice", "label": "Situational Bonuses (Bless / Guidance)", "type": "pairs", "valueType": "dice"}, {"key": "acrobatics_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "acrobatics_override", "label": "Acrobatics (Override)", "type": "number"}, {"key": "animal_handling_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "animal_handling_override", "label": "Animal Handling (Override)", "type": "number"}, {"key": "arcana_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "arcana_override", "label": "Arcana (Override)", "type": "number"}, {"key": "athletics_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "athletics_override", "label": "Athletics (Override)", "type": "number"}, {"key": "deception_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "deception_override", "label": "Deception (Override)", "type": "number"}, {"key": "history_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "history_override", "label": "History (Override)", "type": "number"}, {"key": "insight_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "insight_override", "label": "Insight (Override)", "type": "number"}, {"key": "intimidation_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "intimidation_override", "label": "Intimidation (Override)", "type": "number"}, {"key": "investigation_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "investigation_override", "label": "Investigation (Override)", "type": "number"}, {"key": "medicine_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "medicine_override", "label": "Medicine (Override)", "type": "number"}, {"key": "nature_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "nature_override", "label": "Nature (Override)", "type": "number"}, {"key": "perception_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "perception_override", "label": "Perception (Override)", "type": "number"}, {"key": "performance_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "performance_override", "label": "Performance (Override)", "type": "number"}, {"key": "persuasion_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "persuasion_override", "label": "Persuasion (Override)", "type": "number"}, {"key": "religion_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "religion_override", "label": "Religion (Override)", "type": "number"}, {"key": "sleight_of_hand_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "sleight_of_hand_override", "label": "Sleight of Hand (Override)", "type": "number"}, {"key": "stealth_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "stealth_override", "label": "Stealth (Override)", "type": "number"}, {"key": "survival_prof", "label": "O", "type": "choice", "options": ["◇", "⬖", "◆", "❖"]}, {"key": "survival_override", "label": "Survival (Override)", "type": "number"}, {"key": "passive_perception", "label": "Perception", "type": "number"}, {"key": "passive_investigation", "label": "Investigation", "type": "number"}, {"key": "passive_insight", "label": "Insight", "type": "number"}, {"key": "senses", "label": "Senses", "type": "text", "meaning": "senses"}, {"key": "languages", "label": "Languages", "type": "text"}, {"key": "damage_vulnerabilities", "label": "Vulnerabilities", "type": "text"}, {"key": "damage_resistances", "label": "Resistances", "type": "text"}, {"key": "damage_immunities", "label": "Damage Immunities", "type": "text"}, {"key": "condition_immunities", "label": "Condition Immunities", "type": "text"}, {"key": "armor_training", "label": "Armor Training", "type": "text"}, {"key": "weapon_proficiencies", "label": "Weapon Proficiencies", "type": "text"}, {"key": "tool_proficiencies", "label": "Tool Proficiencies", "type": "text"}, {"key": "weapon_mastery", "label": "Weapon Mastery", "type": "entries"}, {"key": "class_resources", "label": "Class & Feature Resources", "type": "counters", "counterRows": []}, {"key": "action_uses", "label": "Action Uses", "type": "counters", "counterRows": []}, {"key": "bonus_action_uses", "label": "Bonus Action Uses", "type": "counters", "counterRows": []}, {"key": "reaction_uses", "label": "Reaction Uses", "type": "counters", "counterRows": []}, {"key": "class_feature_uses", "label": "Class Feature Uses", "type": "counters", "counterRows": []}, {"key": "species_trait_uses", "label": "Species Trait Uses", "type": "counters", "counterRows": []}, {"key": "feat_uses", "label": "Feat Uses", "type": "counters", "counterRows": []}, {"key": "actions", "label": "Attacks & Actions", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "attack", "label": "Attack", "type": "dice"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "uses", "label": "Uses", "type": "text"}]}}, {"key": "bonus_actions", "label": "Bonus Actions", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "attack", "label": "Attack", "type": "dice"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "uses", "label": "Uses", "type": "text"}]}}, {"key": "reactions", "label": "Reactions", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "attack", "label": "Attack", "type": "dice"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "uses", "label": "Uses", "type": "text"}]}}, {"key": "otheractions", "label": "Other", "type": "entries"}, {"key": "class_features", "label": "Class Features", "type": "entries"}, {"key": "species_traits", "label": "Species Traits", "type": "entries"}, {"key": "feats", "label": "Feats", "type": "entries"}, {"key": "spellcasting_ability", "label": "Ability", "type": "choice", "options": ["Int", "Wis", "Cha"]}, {"key": "spell_save_dc", "label": "Save DC", "type": "number", "rollable": false}, {"key": "spell_attack_bonus", "label": "Atk Bonus", "type": "number"}, {"key": "slots", "label": "Spell Slots", "type": "counters", "counterRows": []}, {"key": "spells", "label": "Spells", "type": "spells"}, {"key": "equipment", "label": "Equipment", "type": "entries"}, {"key": "currency", "label": "Currency", "type": "scores", "slots": ["CP", "SP", "EP", "GP", "PP"], "addRows": false, "addColumns": false}, {"key": "age", "label": "Age", "type": "text"}, {"key": "height", "label": "Height", "type": "text"}, {"key": "weight", "label": "Weight", "type": "text"}, {"key": "eyes", "label": "Eyes", "type": "text"}, {"key": "hair", "label": "Hair", "type": "text"}, {"key": "skin", "label": "Skin", "type": "text"}, {"key": "appearance", "label": "Appearance", "type": "text"}, {"key": "personality", "label": "Personality", "type": "text"}, {"key": "allies", "label": "Allies & Organizations", "type": "text"}, {"key": "notes", "label": "Notes", "type": "text"}, {"key": "description", "label": "Backstory", "type": "markdown", "meaning": "description"}, {"key": "spellcasting", "label": "Spellcasting", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_2", "label": "Tab 2", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_3", "label": "Tab 3", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_4", "label": "Tab 4", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_5", "label": "Tab 5", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_6", "label": "Tab 6", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_7", "label": "Tab 7", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_8", "label": "Tab 8", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_9", "label": "Tab 9", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "tab_10", "label": "Tab 10", "type": "entries", "entry": {"extras": [{"key": "range", "label": "Range", "type": "text"}, {"key": "cost", "label": "Cost", "type": "text"}, {"key": "damage", "label": "Damage", "type": "dice"}, {"key": "type", "label": "Type", "type": "text"}, {"key": "duration", "label": "Duration", "type": "text"}, {"key": "effect", "label": "Effect", "type": "text"}, {"key": "upcast", "label": "Upcast", "type": "text"}]}}, {"key": "notes_2", "label": "Notes", "type": "markdown"}], "header": {"hidden": ["level", "description"]}, "layout": {"maxColumns": 1, "columnWidth": 22, "blocks": [{"id": "c5line01", "type": "line", "fields": ["level", "species", "class", "subclass"], "pattern": "Level {level} {species} {class}[ ({subclass})]"}, {"id": "c5met001", "type": "metric", "heading": "Combat & Defense", "fields": ["ac", "initiative", "speed"], "rollable": true}, {"id": "c5stats0", "type": "scores", "field": "stats", "orientation": "table", "perLine": 3, "columns": [{"label": "Mod", "formula": "floor((value - 10) / 2)", "display": "signed"}, {"label": "Save", "field": "saves", "formula": "floor((value - 10) / 2)", "display": "signed"}], "rollable": true}, {"id": "od1tabs0", "type": "tabs", "blocks": [{"id": "od1tact0", "type": "section", "heading": "Actions", "blocks": [{"id": "64pxvbqo", "type": "section", "heading": "Actions", "blocks": [{"id": "xb5gzm1o", "type": "entries", "field": "actions"}, {"id": "c5acuse1", "type": "counters", "field": "action_uses", "label": "Action Uses", "whenEmpty": "hide"}]}, {"id": "1v8b57jv", "type": "section", "heading": "Bonus Actions", "blocks": [{"id": "39i7r1vx", "type": "entries", "field": "bonus_actions"}, {"id": "c5bause1", "type": "counters", "field": "bonus_action_uses", "label": "Bonus Action Uses", "whenEmpty": "hide"}]}, {"id": "bla4m233", "type": "section", "heading": "Reactions", "blocks": [{"id": "oxlg3f9r", "type": "entries", "field": "reactions"}, {"id": "c5reuse1", "type": "counters", "field": "reaction_uses", "label": "Reaction Uses", "whenEmpty": "hide"}]}, {"id": "c5otha00", "type": "section", "heading": "Other", "blocks": [{"id": "c5otha01", "type": "entries", "field": "otheractions"}]}]}, {"id": "od1tspl0", "type": "section", "heading": "Spells", "blocks": [{"id": "c5scst00", "type": "section", "heading": "Spellcasting", "blocks": [{"id": "c5sprw00", "type": "row", "align": "spread", "blocks": [{"id": "c5scab00", "type": "stat", "field": "spellcasting_ability", "label": "Ability", "look": "stacked"}, {"id": "8rf08qux", "type": "stat", "field": "spell_save_dc", "label": "Save DC", "look": "stacked", "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Int"}, "whenEmpty": "fallback", "fallback": "{=8 + floor((stats.3 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)}"}, {"id": "8hxpuh5m", "type": "stat", "field": "spell_save_dc", "label": "Save DC", "look": "stacked", "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Wis"}, "whenEmpty": "fallback", "fallback": "{=8 + floor((stats.4 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)}"}, {"id": "kmpzlnnc", "type": "stat", "field": "spell_save_dc", "label": "Save DC", "look": "stacked", "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Cha"}, "whenEmpty": "fallback", "fallback": "{=8 + floor((stats.5 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)}"}, {"id": "n3rc6g23", "type": "stat", "field": "spell_attack_bonus", "label": "Atk Bonus", "look": "stacked", "display": "signed", "rollable": true, "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Int"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)|signed}"}, {"id": "6lzsjvgp", "type": "stat", "field": "spell_attack_bonus", "label": "Atk Bonus", "look": "stacked", "display": "signed", "rollable": true, "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Wis"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)|signed}"}, {"id": "jkx7bteo", "type": "stat", "field": "spell_attack_bonus", "label": "Atk Bonus", "look": "stacked", "display": "signed", "rollable": true, "showWhen": {"field": "spellcasting_ability", "is": "equal", "value": "Cha"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + max(2, floor((level - 1) / 4) + 2)|signed}"}]}]}, {"id": "c5slots0", "type": "counters", "field": "slots", "label": "Spell Slots", "whenEmpty": "hide"}, {"id": "j7pweyvi", "type": "tabs", "blocks": [{"id": "0u0564c6", "type": "section", "heading": "Cantrips", "blocks": [{"id": "wavovf8j", "type": "entries", "field": "spellcasting"}]}, {"id": "9dckl80y", "type": "section", "heading": "1", "blocks": [{"id": "7e8pr9ak", "type": "entries", "field": "tab_2"}]}, {"id": "zcqijevp", "type": "section", "heading": "2", "blocks": [{"id": "is8z6ogk", "type": "entries", "field": "tab_3"}]}, {"id": "owx4o93u", "type": "section", "heading": "3", "blocks": [{"id": "elsgia2a", "type": "entries", "field": "tab_4"}]}, {"id": "2mrcypnn", "type": "section", "heading": "4", "blocks": [{"id": "92zo9c8a", "type": "entries", "field": "tab_5"}]}, {"id": "djpvfgdp", "type": "section", "heading": "5", "blocks": [{"id": "4dx7amzh", "type": "entries", "field": "tab_6"}]}, {"id": "v9rxqdhk", "type": "section", "heading": "6", "blocks": [{"id": "gv250bke", "type": "entries", "field": "tab_7"}]}, {"id": "1saoltpc", "type": "section", "heading": "7", "blocks": [{"id": "wcwti5i6", "type": "entries", "field": "tab_8"}]}, {"id": "9keiwz0b", "type": "section", "heading": "8", "blocks": [{"id": "75q3harf", "type": "entries", "field": "tab_9"}]}, {"id": "rnbenujx", "type": "section", "heading": "9", "blocks": [{"id": "ljcu0igf", "type": "entries", "field": "tab_10"}]}]}], "showWhen": {"field": "spellcasting_ability", "is": "present"}}, {"id": "od1tskl0", "type": "section", "heading": "Skills", "blocks": [{"id": "c5sk00r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk00p0", "type": "stat", "field": "acrobatics_prof", "label": "", "look": "run-in", "pattern": "{acrobatics_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk00v0", "type": "stat", "field": "acrobatics_override", "label": "Acrobatics (Dex)", "look": "run-in", "pattern": "{acrobatics_override|signed}", "rollable": true, "showWhen": {"field": "acrobatics_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "e0000000", "type": "stat", "field": "acrobatics_override", "label": "Acrobatics (Dex)", "look": "run-in", "pattern": "{acrobatics_override|signed}", "rollable": true, "showWhen": {"field": "acrobatics_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "h0000000", "type": "stat", "field": "acrobatics_override", "label": "Acrobatics (Dex)", "look": "run-in", "pattern": "{acrobatics_override|signed}", "rollable": true, "showWhen": {"field": "acrobatics_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s0000000", "type": "stat", "field": "acrobatics_override", "label": "Acrobatics (Dex)", "look": "run-in", "pattern": "{acrobatics_override|signed}", "rollable": true, "showWhen": {"field": "acrobatics_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s0000001", "type": "stat", "field": "acrobatics_override", "label": "Acrobatics (Dex)", "look": "run-in", "pattern": "{acrobatics_override|signed}", "rollable": true, "showWhen": {"field": "acrobatics_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk01r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk01p0", "type": "stat", "field": "animal_handling_prof", "label": "", "look": "run-in", "pattern": "{animal_handling_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk01v0", "type": "stat", "field": "animal_handling_override", "label": "Animal Handling (Wis)", "look": "run-in", "pattern": "{animal_handling_override|signed}", "rollable": true, "showWhen": {"field": "animal_handling_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "e0000001", "type": "stat", "field": "animal_handling_override", "label": "Animal Handling (Wis)", "look": "run-in", "pattern": "{animal_handling_override|signed}", "rollable": true, "showWhen": {"field": "animal_handling_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "h0000001", "type": "stat", "field": "animal_handling_override", "label": "Animal Handling (Wis)", "look": "run-in", "pattern": "{animal_handling_override|signed}", "rollable": true, "showWhen": {"field": "animal_handling_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s0000002", "type": "stat", "field": "animal_handling_override", "label": "Animal Handling (Wis)", "look": "run-in", "pattern": "{animal_handling_override|signed}", "rollable": true, "showWhen": {"field": "animal_handling_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s0000003", "type": "stat", "field": "animal_handling_override", "label": "Animal Handling (Wis)", "look": "run-in", "pattern": "{animal_handling_override|signed}", "rollable": true, "showWhen": {"field": "animal_handling_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk02r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk02p0", "type": "stat", "field": "arcana_prof", "label": "", "look": "run-in", "pattern": "{arcana_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk02v0", "type": "stat", "field": "arcana_override", "label": "Arcana (Int)", "look": "run-in", "pattern": "{arcana_override|signed}", "rollable": true, "showWhen": {"field": "arcana_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "e0000002", "type": "stat", "field": "arcana_override", "label": "Arcana (Int)", "look": "run-in", "pattern": "{arcana_override|signed}", "rollable": true, "showWhen": {"field": "arcana_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "h0000002", "type": "stat", "field": "arcana_override", "label": "Arcana (Int)", "look": "run-in", "pattern": "{arcana_override|signed}", "rollable": true, "showWhen": {"field": "arcana_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s0000004", "type": "stat", "field": "arcana_override", "label": "Arcana (Int)", "look": "run-in", "pattern": "{arcana_override|signed}", "rollable": true, "showWhen": {"field": "arcana_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s0000005", "type": "stat", "field": "arcana_override", "label": "Arcana (Int)", "look": "run-in", "pattern": "{arcana_override|signed}", "rollable": true, "showWhen": {"field": "arcana_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk03r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk03p0", "type": "stat", "field": "athletics_prof", "label": "", "look": "run-in", "pattern": "{athletics_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk03v0", "type": "stat", "field": "athletics_override", "label": "Athletics (Str)", "look": "run-in", "pattern": "{athletics_override|signed}", "rollable": true, "showWhen": {"field": "athletics_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.0 - 10) / 2)|signed}"}, {"id": "e0000003", "type": "stat", "field": "athletics_override", "label": "Athletics (Str)", "look": "run-in", "pattern": "{athletics_override|signed}", "rollable": true, "showWhen": {"field": "athletics_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.0 - 10) / 2)|signed}"}, {"id": "h0000003", "type": "stat", "field": "athletics_override", "label": "Athletics (Str)", "look": "run-in", "pattern": "{athletics_override|signed}", "rollable": true, "showWhen": {"field": "athletics_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.0 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s0000006", "type": "stat", "field": "athletics_override", "label": "Athletics (Str)", "look": "run-in", "pattern": "{athletics_override|signed}", "rollable": true, "showWhen": {"field": "athletics_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.0 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s0000007", "type": "stat", "field": "athletics_override", "label": "Athletics (Str)", "look": "run-in", "pattern": "{athletics_override|signed}", "rollable": true, "showWhen": {"field": "athletics_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.0 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk04r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk04p0", "type": "stat", "field": "deception_prof", "label": "", "look": "run-in", "pattern": "{deception_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk04v0", "type": "stat", "field": "deception_override", "label": "Deception (Cha)", "look": "run-in", "pattern": "{deception_override|signed}", "rollable": true, "showWhen": {"field": "deception_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "e0000004", "type": "stat", "field": "deception_override", "label": "Deception (Cha)", "look": "run-in", "pattern": "{deception_override|signed}", "rollable": true, "showWhen": {"field": "deception_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "h0000004", "type": "stat", "field": "deception_override", "label": "Deception (Cha)", "look": "run-in", "pattern": "{deception_override|signed}", "rollable": true, "showWhen": {"field": "deception_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s0000008", "type": "stat", "field": "deception_override", "label": "Deception (Cha)", "look": "run-in", "pattern": "{deception_override|signed}", "rollable": true, "showWhen": {"field": "deception_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s0000009", "type": "stat", "field": "deception_override", "label": "Deception (Cha)", "look": "run-in", "pattern": "{deception_override|signed}", "rollable": true, "showWhen": {"field": "deception_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk05r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk05p0", "type": "stat", "field": "history_prof", "label": "", "look": "run-in", "pattern": "{history_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk05v0", "type": "stat", "field": "history_override", "label": "History (Int)", "look": "run-in", "pattern": "{history_override|signed}", "rollable": true, "showWhen": {"field": "history_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "e0000005", "type": "stat", "field": "history_override", "label": "History (Int)", "look": "run-in", "pattern": "{history_override|signed}", "rollable": true, "showWhen": {"field": "history_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "h0000005", "type": "stat", "field": "history_override", "label": "History (Int)", "look": "run-in", "pattern": "{history_override|signed}", "rollable": true, "showWhen": {"field": "history_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000a", "type": "stat", "field": "history_override", "label": "History (Int)", "look": "run-in", "pattern": "{history_override|signed}", "rollable": true, "showWhen": {"field": "history_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000b", "type": "stat", "field": "history_override", "label": "History (Int)", "look": "run-in", "pattern": "{history_override|signed}", "rollable": true, "showWhen": {"field": "history_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk06r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk06p0", "type": "stat", "field": "insight_prof", "label": "", "look": "run-in", "pattern": "{insight_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk06v0", "type": "stat", "field": "insight_override", "label": "Insight (Wis)", "look": "run-in", "pattern": "{insight_override|signed}", "rollable": true, "showWhen": {"field": "insight_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "e0000006", "type": "stat", "field": "insight_override", "label": "Insight (Wis)", "look": "run-in", "pattern": "{insight_override|signed}", "rollable": true, "showWhen": {"field": "insight_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "h0000006", "type": "stat", "field": "insight_override", "label": "Insight (Wis)", "look": "run-in", "pattern": "{insight_override|signed}", "rollable": true, "showWhen": {"field": "insight_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000c", "type": "stat", "field": "insight_override", "label": "Insight (Wis)", "look": "run-in", "pattern": "{insight_override|signed}", "rollable": true, "showWhen": {"field": "insight_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000d", "type": "stat", "field": "insight_override", "label": "Insight (Wis)", "look": "run-in", "pattern": "{insight_override|signed}", "rollable": true, "showWhen": {"field": "insight_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk07r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk07p0", "type": "stat", "field": "intimidation_prof", "label": "", "look": "run-in", "pattern": "{intimidation_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk07v0", "type": "stat", "field": "intimidation_override", "label": "Intimidation (Cha)", "look": "run-in", "pattern": "{intimidation_override|signed}", "rollable": true, "showWhen": {"field": "intimidation_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "e0000007", "type": "stat", "field": "intimidation_override", "label": "Intimidation (Cha)", "look": "run-in", "pattern": "{intimidation_override|signed}", "rollable": true, "showWhen": {"field": "intimidation_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "h0000007", "type": "stat", "field": "intimidation_override", "label": "Intimidation (Cha)", "look": "run-in", "pattern": "{intimidation_override|signed}", "rollable": true, "showWhen": {"field": "intimidation_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000e", "type": "stat", "field": "intimidation_override", "label": "Intimidation (Cha)", "look": "run-in", "pattern": "{intimidation_override|signed}", "rollable": true, "showWhen": {"field": "intimidation_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000f", "type": "stat", "field": "intimidation_override", "label": "Intimidation (Cha)", "look": "run-in", "pattern": "{intimidation_override|signed}", "rollable": true, "showWhen": {"field": "intimidation_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk08r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk08p0", "type": "stat", "field": "investigation_prof", "label": "", "look": "run-in", "pattern": "{investigation_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk08v0", "type": "stat", "field": "investigation_override", "label": "Investigation (Int)", "look": "run-in", "pattern": "{investigation_override|signed}", "rollable": true, "showWhen": {"field": "investigation_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "e0000008", "type": "stat", "field": "investigation_override", "label": "Investigation (Int)", "look": "run-in", "pattern": "{investigation_override|signed}", "rollable": true, "showWhen": {"field": "investigation_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "h0000008", "type": "stat", "field": "investigation_override", "label": "Investigation (Int)", "look": "run-in", "pattern": "{investigation_override|signed}", "rollable": true, "showWhen": {"field": "investigation_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000g", "type": "stat", "field": "investigation_override", "label": "Investigation (Int)", "look": "run-in", "pattern": "{investigation_override|signed}", "rollable": true, "showWhen": {"field": "investigation_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000h", "type": "stat", "field": "investigation_override", "label": "Investigation (Int)", "look": "run-in", "pattern": "{investigation_override|signed}", "rollable": true, "showWhen": {"field": "investigation_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk09r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk09p0", "type": "stat", "field": "medicine_prof", "label": "", "look": "run-in", "pattern": "{medicine_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk09v0", "type": "stat", "field": "medicine_override", "label": "Medicine (Wis)", "look": "run-in", "pattern": "{medicine_override|signed}", "rollable": true, "showWhen": {"field": "medicine_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "e0000009", "type": "stat", "field": "medicine_override", "label": "Medicine (Wis)", "look": "run-in", "pattern": "{medicine_override|signed}", "rollable": true, "showWhen": {"field": "medicine_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "h0000009", "type": "stat", "field": "medicine_override", "label": "Medicine (Wis)", "look": "run-in", "pattern": "{medicine_override|signed}", "rollable": true, "showWhen": {"field": "medicine_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000i", "type": "stat", "field": "medicine_override", "label": "Medicine (Wis)", "look": "run-in", "pattern": "{medicine_override|signed}", "rollable": true, "showWhen": {"field": "medicine_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000j", "type": "stat", "field": "medicine_override", "label": "Medicine (Wis)", "look": "run-in", "pattern": "{medicine_override|signed}", "rollable": true, "showWhen": {"field": "medicine_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk10r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk10p0", "type": "stat", "field": "nature_prof", "label": "", "look": "run-in", "pattern": "{nature_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk10v0", "type": "stat", "field": "nature_override", "label": "Nature (Int)", "look": "run-in", "pattern": "{nature_override|signed}", "rollable": true, "showWhen": {"field": "nature_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "e000000a", "type": "stat", "field": "nature_override", "label": "Nature (Int)", "look": "run-in", "pattern": "{nature_override|signed}", "rollable": true, "showWhen": {"field": "nature_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "h000000a", "type": "stat", "field": "nature_override", "label": "Nature (Int)", "look": "run-in", "pattern": "{nature_override|signed}", "rollable": true, "showWhen": {"field": "nature_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000k", "type": "stat", "field": "nature_override", "label": "Nature (Int)", "look": "run-in", "pattern": "{nature_override|signed}", "rollable": true, "showWhen": {"field": "nature_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000l", "type": "stat", "field": "nature_override", "label": "Nature (Int)", "look": "run-in", "pattern": "{nature_override|signed}", "rollable": true, "showWhen": {"field": "nature_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk11r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk11p0", "type": "stat", "field": "perception_prof", "label": "", "look": "run-in", "pattern": "{perception_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk11v0", "type": "stat", "field": "perception_override", "label": "Perception (Wis)", "look": "run-in", "pattern": "{perception_override|signed}", "rollable": true, "showWhen": {"field": "perception_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "e000000b", "type": "stat", "field": "perception_override", "label": "Perception (Wis)", "look": "run-in", "pattern": "{perception_override|signed}", "rollable": true, "showWhen": {"field": "perception_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "h000000b", "type": "stat", "field": "perception_override", "label": "Perception (Wis)", "look": "run-in", "pattern": "{perception_override|signed}", "rollable": true, "showWhen": {"field": "perception_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000m", "type": "stat", "field": "perception_override", "label": "Perception (Wis)", "look": "run-in", "pattern": "{perception_override|signed}", "rollable": true, "showWhen": {"field": "perception_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000n", "type": "stat", "field": "perception_override", "label": "Perception (Wis)", "look": "run-in", "pattern": "{perception_override|signed}", "rollable": true, "showWhen": {"field": "perception_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk12r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk12p0", "type": "stat", "field": "performance_prof", "label": "", "look": "run-in", "pattern": "{performance_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk12v0", "type": "stat", "field": "performance_override", "label": "Performance (Cha)", "look": "run-in", "pattern": "{performance_override|signed}", "rollable": true, "showWhen": {"field": "performance_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "e000000c", "type": "stat", "field": "performance_override", "label": "Performance (Cha)", "look": "run-in", "pattern": "{performance_override|signed}", "rollable": true, "showWhen": {"field": "performance_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "h000000c", "type": "stat", "field": "performance_override", "label": "Performance (Cha)", "look": "run-in", "pattern": "{performance_override|signed}", "rollable": true, "showWhen": {"field": "performance_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000o", "type": "stat", "field": "performance_override", "label": "Performance (Cha)", "look": "run-in", "pattern": "{performance_override|signed}", "rollable": true, "showWhen": {"field": "performance_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000p", "type": "stat", "field": "performance_override", "label": "Performance (Cha)", "look": "run-in", "pattern": "{performance_override|signed}", "rollable": true, "showWhen": {"field": "performance_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk13r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk13p0", "type": "stat", "field": "persuasion_prof", "label": "", "look": "run-in", "pattern": "{persuasion_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk13v0", "type": "stat", "field": "persuasion_override", "label": "Persuasion (Cha)", "look": "run-in", "pattern": "{persuasion_override|signed}", "rollable": true, "showWhen": {"field": "persuasion_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "e000000d", "type": "stat", "field": "persuasion_override", "label": "Persuasion (Cha)", "look": "run-in", "pattern": "{persuasion_override|signed}", "rollable": true, "showWhen": {"field": "persuasion_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2)|signed}"}, {"id": "h000000d", "type": "stat", "field": "persuasion_override", "label": "Persuasion (Cha)", "look": "run-in", "pattern": "{persuasion_override|signed}", "rollable": true, "showWhen": {"field": "persuasion_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000q", "type": "stat", "field": "persuasion_override", "label": "Persuasion (Cha)", "look": "run-in", "pattern": "{persuasion_override|signed}", "rollable": true, "showWhen": {"field": "persuasion_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000r", "type": "stat", "field": "persuasion_override", "label": "Persuasion (Cha)", "look": "run-in", "pattern": "{persuasion_override|signed}", "rollable": true, "showWhen": {"field": "persuasion_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.5 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk14r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk14p0", "type": "stat", "field": "religion_prof", "label": "", "look": "run-in", "pattern": "{religion_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk14v0", "type": "stat", "field": "religion_override", "label": "Religion (Int)", "look": "run-in", "pattern": "{religion_override|signed}", "rollable": true, "showWhen": {"field": "religion_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "e000000e", "type": "stat", "field": "religion_override", "label": "Religion (Int)", "look": "run-in", "pattern": "{religion_override|signed}", "rollable": true, "showWhen": {"field": "religion_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2)|signed}"}, {"id": "h000000e", "type": "stat", "field": "religion_override", "label": "Religion (Int)", "look": "run-in", "pattern": "{religion_override|signed}", "rollable": true, "showWhen": {"field": "religion_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000s", "type": "stat", "field": "religion_override", "label": "Religion (Int)", "look": "run-in", "pattern": "{religion_override|signed}", "rollable": true, "showWhen": {"field": "religion_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000t", "type": "stat", "field": "religion_override", "label": "Religion (Int)", "look": "run-in", "pattern": "{religion_override|signed}", "rollable": true, "showWhen": {"field": "religion_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.3 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk15r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk15p0", "type": "stat", "field": "sleight_of_hand_prof", "label": "", "look": "run-in", "pattern": "{sleight_of_hand_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk15v0", "type": "stat", "field": "sleight_of_hand_override", "label": "Sleight of Hand (Dex)", "look": "run-in", "pattern": "{sleight_of_hand_override|signed}", "rollable": true, "showWhen": {"field": "sleight_of_hand_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "e000000f", "type": "stat", "field": "sleight_of_hand_override", "label": "Sleight of Hand (Dex)", "look": "run-in", "pattern": "{sleight_of_hand_override|signed}", "rollable": true, "showWhen": {"field": "sleight_of_hand_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "h000000f", "type": "stat", "field": "sleight_of_hand_override", "label": "Sleight of Hand (Dex)", "look": "run-in", "pattern": "{sleight_of_hand_override|signed}", "rollable": true, "showWhen": {"field": "sleight_of_hand_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000u", "type": "stat", "field": "sleight_of_hand_override", "label": "Sleight of Hand (Dex)", "look": "run-in", "pattern": "{sleight_of_hand_override|signed}", "rollable": true, "showWhen": {"field": "sleight_of_hand_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000v", "type": "stat", "field": "sleight_of_hand_override", "label": "Sleight of Hand (Dex)", "look": "run-in", "pattern": "{sleight_of_hand_override|signed}", "rollable": true, "showWhen": {"field": "sleight_of_hand_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk16r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk16p0", "type": "stat", "field": "stealth_prof", "label": "", "look": "run-in", "pattern": "{stealth_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk16v0", "type": "stat", "field": "stealth_override", "label": "Stealth (Dex)", "look": "run-in", "pattern": "{stealth_override|signed}", "rollable": true, "showWhen": {"field": "stealth_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "e000000g", "type": "stat", "field": "stealth_override", "label": "Stealth (Dex)", "look": "run-in", "pattern": "{stealth_override|signed}", "rollable": true, "showWhen": {"field": "stealth_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2)|signed}"}, {"id": "h000000g", "type": "stat", "field": "stealth_override", "label": "Stealth (Dex)", "look": "run-in", "pattern": "{stealth_override|signed}", "rollable": true, "showWhen": {"field": "stealth_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000w", "type": "stat", "field": "stealth_override", "label": "Stealth (Dex)", "look": "run-in", "pattern": "{stealth_override|signed}", "rollable": true, "showWhen": {"field": "stealth_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000x", "type": "stat", "field": "stealth_override", "label": "Stealth (Dex)", "look": "run-in", "pattern": "{stealth_override|signed}", "rollable": true, "showWhen": {"field": "stealth_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.1 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5sk17r0", "type": "row", "align": "start", "blocks": [{"id": "c5sk17p0", "type": "stat", "field": "survival_prof", "label": "", "look": "run-in", "pattern": "{survival_prof}", "whenEmpty": "fallback", "fallback": "◇"}, {"id": "c5sk17v0", "type": "stat", "field": "survival_override", "label": "Survival (Wis)", "look": "run-in", "pattern": "{survival_override|signed}", "rollable": true, "showWhen": {"field": "survival_prof", "is": "equal", "value": "◇"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "e000000h", "type": "stat", "field": "survival_override", "label": "Survival (Wis)", "look": "run-in", "pattern": "{survival_override|signed}", "rollable": true, "showWhen": {"field": "survival_prof", "is": "absent"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2)|signed}"}, {"id": "h000000h", "type": "stat", "field": "survival_override", "label": "Survival (Wis)", "look": "run-in", "pattern": "{survival_override|signed}", "rollable": true, "showWhen": {"field": "survival_prof", "is": "equal", "value": "⬖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + floor((floor((level - 1) / 4) + 2) / 2)|signed}"}, {"id": "s000000y", "type": "stat", "field": "survival_override", "label": "Survival (Wis)", "look": "run-in", "pattern": "{survival_override|signed}", "rollable": true, "showWhen": {"field": "survival_prof", "is": "equal", "value": "◆"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + (floor((level - 1) / 4) + 2)|signed}"}, {"id": "s000000z", "type": "stat", "field": "survival_override", "label": "Survival (Wis)", "look": "run-in", "pattern": "{survival_override|signed}", "rollable": true, "showWhen": {"field": "survival_prof", "is": "equal", "value": "❖"}, "whenEmpty": "fallback", "fallback": "{=floor((stats.4 - 10) / 2) + 2 * (floor((level - 1) / 4) + 2)|signed}"}]}, {"id": "c5met002", "type": "metric", "heading": "Passive Senses", "fields": ["passive_perception", "passive_investigation", "passive_insight"]}, {"id": "c5sense0", "type": "stat", "field": "senses", "look": "run-in"}, {"id": "c5lang00", "type": "stat", "field": "languages", "look": "run-in", "whenEmpty": "fallback", "fallback": "Common"}]}, {"id": "od1tfea0", "type": "section", "heading": "Features", "blocks": [{"id": "c5cres01", "type": "counters", "field": "class_resources", "label": "Class & Feature Resources"}, {"id": "c5cfsec0", "type": "section", "heading": "Class Features", "blocks": [{"id": "c5cfeat0", "type": "entries", "field": "class_features", "addLabel": "Add class feature"}, {"id": "c5cfuse1", "type": "counters", "field": "class_feature_uses", "label": "Class Feature Uses", "whenEmpty": "hide"}]}, {"id": "c5stsec0", "type": "section", "heading": "Species Traits", "blocks": [{"id": "c5sptra0", "type": "entries", "field": "species_traits", "addLabel": "Add species trait"}, {"id": "c5stuse1", "type": "counters", "field": "species_trait_uses", "label": "Species Trait Uses", "whenEmpty": "hide"}]}, {"id": "c5fasec0", "type": "section", "heading": "Feats", "blocks": [{"id": "c5feats0", "type": "entries", "field": "feats", "addLabel": "Add feat"}, {"id": "c5ftuse1", "type": "counters", "field": "feat_uses", "label": "Feat Uses", "whenEmpty": "hide"}]}]}, {"id": "od1tinv0", "type": "section", "heading": "Inventory", "blocks": [{"id": "0ghhsttd", "type": "scores", "field": "currency", "orientation": "row"}, {"id": "c5equip0", "type": "entries", "field": "equipment", "heading": "Equipment", "addLabel": "Add item"}]}, {"id": "od1tdef0", "type": "section", "heading": "Defenses", "blocks": [{"id": "c5pb0000", "type": "stat", "field": "pb", "label": "Proficiency Bonus", "look": "run-in", "whenEmpty": "fallback", "fallback": "{=floor((level - 1) / 4) + 2}", "rollable": true, "addsToRolls": true}, {"id": "c5hd0000", "type": "stat", "field": "hit_dice", "label": "Hit Point Dice", "look": "run-in", "pattern": "{hit_dice}[ ({hit_dice_spent} spent)]"}, {"id": "c5hdp000", "type": "counters", "field": "hit_dice_pool", "label": "Hit Dice Pool"}, {"id": "03tm2jcu", "type": "row", "align": "spread", "blocks": [{"id": "c5ds0001", "type": "counters", "field": "death_save_success", "label": "Death Save (Success)"}, {"id": "c5ds0002", "type": "counters", "field": "death_save_failure", "label": "Death Save (Failure)"}]}, {"id": "c5insp00", "type": "counters", "field": "heroic_inspiration", "label": "Heroic Inspiration"}, {"id": "od1div01", "type": "divider"}, {"id": "c5resi00", "type": "stat", "field": "damage_resistances", "label": "Resistances", "look": "run-in", "whenEmpty": "hide"}, {"id": "c5immu00", "type": "stat", "field": "damage_immunities", "label": "Immunities", "look": "run-in", "pattern": "{damage_immunities, condition_immunities|join:; }", "whenEmpty": "hide"}, {"id": "c5vuln00", "type": "stat", "field": "damage_vulnerabilities", "label": "Vulnerabilities", "look": "run-in", "whenEmpty": "hide"}, {"id": "od1cimm0", "type": "stat", "field": "condition_immunities", "look": "run-in"}, {"id": "od1div02", "type": "divider"}, {"id": "c5armor0", "type": "stat", "field": "armor_training", "look": "run-in"}, {"id": "c5wprof0", "type": "stat", "field": "weapon_proficiencies", "look": "run-in"}, {"id": "c5tprof0", "type": "stat", "field": "tool_proficiencies", "look": "run-in"}, {"id": "c5wmast0", "type": "entries", "field": "weapon_mastery", "heading": "Weapon Mastery", "addLabel": "Add weapon"}, {"id": "c5sit001", "type": "pairs", "field": "bonus_dice", "label": "Bonus Dice (Bless / Guidance)", "addsToRolls": true}]}, {"id": "od1tbg00", "type": "section", "heading": "Background", "blocks": [{"id": "c5line02", "type": "line", "fields": ["size", "background", "alignment"], "pattern": "{size}[ · {background}][ · {alignment}]"}, {"id": "c5row006", "type": "row", "align": "start", "blocks": [{"id": "c5age000", "type": "stat", "field": "age", "look": "run-in"}, {"id": "c5heigh0", "type": "stat", "field": "height", "look": "run-in"}, {"id": "c5weigh0", "type": "stat", "field": "weight", "look": "run-in"}]}, {"id": "c5row007", "type": "row", "align": "start", "blocks": [{"id": "c5eyes00", "type": "stat", "field": "eyes", "look": "run-in"}, {"id": "c5hair00", "type": "stat", "field": "hair", "look": "run-in"}, {"id": "c5skin00", "type": "stat", "field": "skin", "look": "run-in"}]}, {"id": "c5appea0", "type": "stat", "field": "appearance", "look": "run-in"}, {"id": "c5perso0", "type": "stat", "field": "personality", "look": "run-in"}, {"id": "c5allie0", "type": "stat", "field": "allies", "look": "run-in"}, {"id": "od1notes", "type": "stat", "field": "notes", "look": "stacked"}, {"id": "c5xp0000", "type": "stat", "field": "xp", "label": "XP", "look": "run-in", "pattern": "{xp}[ / {level|lookup:xp_next}]"}]}]}]}, "lookups": {"xp_next": {"1": "300", "2": "900", "3": "2,700", "4": "6,500", "5": "14,000", "6": "23,000", "7": "34,000", "8": "48,000", "9": "64,000", "10": "85,000", "11": "100,000", "12": "120,000", "13": "140,000", "14": "165,000", "15": "195,000", "16": "225,000", "17": "265,000", "18": "305,000", "19": "355,000", "20": "—"}, "pb": {"1": "+2", "2": "+2", "3": "+2", "4": "+2", "5": "+3", "6": "+3", "7": "+3", "8": "+3", "9": "+4", "10": "+4", "11": "+4", "12": "+4", "13": "+5", "14": "+5", "15": "+5", "16": "+5", "17": "+6", "18": "+6", "19": "+6", "20": "+6"}}, "sample": {"name": "Character name", "level": 1, "ac": 16, "initiative": 1, "speed": 30, "pb": 2, "hp": 12, "stats": [15, 14, 13, 12, 10, 8], "athletics_prof": "◆", "perception_prof": "◆"}, "recovery": [{"id": "short-rest", "name": "Short rest", "rules": [{"target": {"kind": "counters", "field": "death_save_success", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "death_save_failure", "rows": "all"}, "does": "full"}], "choices": [{"id": "step-sr01", "prompt": "Choose actions during short rest", "min": 0, "max": 3, "repeat": true, "actions": [{"id": "act-sr-hd", "name": "Spend Hit Dice", "rules": [{"target": {"kind": "resource", "field": "hp"}, "does": "spend", "from": {"kind": "counters", "field": "hit_dice_pool", "rows": "all"}, "each": "1d8 + @con.mod"}], "text": "Spend one or more Hit Dice to regain HP (roll one die per die spent, adding the Constitution modifier to each)."}, {"id": "act-sr-class", "name": "Recharge Short Rest Features", "rules": [{"target": {"kind": "counters", "field": "class_resources", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "action_uses", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "bonus_action_uses", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "reaction_uses", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "class_feature_uses", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "species_trait_uses", "rows": ["short-rest"]}, "does": "full"}, {"target": {"kind": "counters", "field": "feat_uses", "rows": ["short-rest"]}, "does": "full"}], "text": "Regain expended uses of Channel Divinity or other short-rest recharge abilities."}]}]}, {"id": "long-rest", "name": "Long rest", "rules": [{"target": {"kind": "resource", "field": "hp"}, "does": "full"}, {"target": {"kind": "counters", "field": "hit_dice_pool", "rows": "all"}, "does": "share", "share": 0.5, "round": "up", "min": 1}, {"target": {"kind": "counters", "field": "slots", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "class_resources", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "death_save_success", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "death_save_failure", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "action_uses", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "bonus_action_uses", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "reaction_uses", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "class_feature_uses", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "species_trait_uses", "rows": "all"}, "does": "full"}, {"target": {"kind": "counters", "field": "feat_uses", "rows": "all"}, "does": "full"}]}]};
+
+function atlasOrdinal(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  return `${n}${({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"}`;
+}
+
+function atlasText(v) {
+  return String(v == null ? "" : v).trim();
+}
+
+function atlasNumber(v, fallback = null) {
+  if (v === null || v === undefined || v === "") return fallback;
+  const n = typeof v === "number" ? v : parseInt(String(v).replace(/[^\d+-]/g, ""), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// "[[Some/Path/Rapier]]" or "[[Rapier|Rapier]]" -> "Some/Path/Rapier"
+function atlasLinkTarget(link) {
+  const s = atlasText(link && link.path ? link.path : link).replace(/^!?\[\[|\]\]$/g, "");
+  return s.split("|")[0].trim();
+}
+
+function atlasUsesText(entry) {
+  const max = Number(entry && entry.max) || 0;
+  if (max <= 0) return "";
+  const used = Math.min(Number(entry.used) || 0, max);
+  const rest = atlasText(entry.rest);
+  return `${max - used}/${max}${rest ? ` per ${rest} Rest` : ""}`;
+}
+
+function atlasCounter(entry) {
+  const max = Number(entry && entry.max) || 0;
+  if (max <= 0) return null;
+  const counter = { name: atlasText(entry.name), max, used: Math.min(Number(entry.used) || 0, max) };
+  // Atlas' "Short rest" button only recharges rows tagged short-rest
+  // (its Long rest recharges everything anyway).
+  if (/short/i.test(atlasText(entry.rest))) counter.reset = "short-rest";
+  return counter;
+}
+
+// Builds the Atlas statblock frontmatter for one character purely from data
+// the sheet has already saved (main note + companion files) and the same
+// helpers the sheet's own trackers/PDF export use. Read-only: never creates
+// or modifies a companion file.
+function buildAtlasCharacterFrontmatter(app, mainFile) {
+  const fmOf = (file) => (file && (app.metadataCache.getFileCache(file) || {}).frontmatter) || {};
+  const companion = (kind) => fmOf(app.vault.getAbstractFileByPath(companionFilePath(app, mainFile, kind)));
+
+  const fm = fmOf(mainFile);
+  const abFm = companion("Abilities");
+  const featuresFm = companion("Features");
+  const actionsFm = companion("Actions");
+  const inventoryFm = companion("Inventory");
+  const spellsFm = companion("Spells");
+  const defensesFm = companion("Defenses");
+  const backgroundFm = companion("Background");
+
+  const out = {};
+  const set = (key, value) => {
+    if (value === null || value === undefined) return;
+    if (typeof value === "string" && value.trim() === "") return;
+    if (Array.isArray(value) && value.length === 0) return;
+    out[key] = value;
+  };
+
+  out.statblock = true;
+  out["atlas-template"] = ATLAS_TEMPLATE_ID;
+
+  // ---- Identity ----
+  const name = atlasText(fm.character_name) || mainFile.basename;
+  const level = Number(fm.level) || 1;
+  const profBonus = proficiencyBonusForLevel(level);
+  set("name", name);
+  const cover = atlasText(fm.cover);
+  if (cover) set("image", /^!?\[\[/.test(cover) ? cover.replace(/^!/, "") : `[[${cover}]]`);
+  set("species", atlasText(fm.race));
+  set("class", atlasText(fm.class));
+  set("subclass", atlasText(abFm.subclass));
+  set("level", level);
+  set("background", atlasText(abFm.background || fm.background));
+  set("alignment", atlasText(abFm.alignment || fm.alignment));
+  set("size", atlasText(backgroundFm.size) || "Medium");
+
+  // ---- Combat basics ----
+  set("ac", atlasNumber(fm.armor_class ?? fm.ac));
+  set("initiative", atlasNumber(abFm.initiative, 0));
+  set("speed", atlasNumber(abFm.base_speed, 30));
+  set("pb", profBonus);
+  set("hp", atlasNumber(fm.hp_max ?? fm.hp));
+  set("hp_current", atlasNumber(fm.hp_current));
+  set("hp_temp", atlasNumber(fm.temp_hp, 0));
+
+  const classNames = atlasText(fm.class).split(" / ").map((s) => s.trim()).filter(Boolean);
+  const classLevels = abFm.class_levels || {};
+  const hitDice = classNames.map((cn) => {
+    const lvl = classNames.length > 1 ? Number(classLevels[cn]) || 1 : level;
+    let die = HIT_DICE[cn];
+    if (die == null) {
+      const hb = (HOMEBREW.classes || []).find((c) => c.name === cn);
+      die = (hb && Number(hb.hitDie)) || 8;
+    }
+    return { cn, lvl, die };
+  });
+  if (hitDice.length) {
+    set("hit_dice", hitDice.map((h) => `${h.lvl}d${h.die}`).join(" + "));
+    set("hit_dice_pool", hitDice.map((h) => ({ name: `${h.cn} (d${h.die})`, max: h.lvl, used: 0 })));
+  }
+
+  // Ticked boxes = "used" pips, exactly like the sheet's own checkboxes
+  // (Atlas' rest buttons reset used to 0 = all boxes clear).
+  const ticks = (prefix) => [1, 2, 3].filter((i) => !!fm[`${prefix}${i}`]).length;
+  set("death_save_success", [{ name: "Success", max: 3, used: ticks("death_save_success_") }]);
+  set("death_save_failure", [{ name: "Failure", max: 3, used: ticks("death_save_fail_") }]);
+  set("heroic_inspiration", [{ name: "Inspiration", max: 1, used: fm.heroic_inspiration ? 1 : 0 }]);
+
+  // ---- Abilities, saves, skills ----
+  const scores = ["str", "dex", "con", "int", "wis", "cha"].map((k) => atlasNumber(abFm[`${k}_score`], 10));
+  set("stats", scores);
+  set(
+    "saves",
+    (abFm.saves_list || [])
+      .filter((s) => s && s.ability)
+      .map((s) => ({ [String(s.ability).toLowerCase()]: atlasText(s.mod) || "+0" }))
+  );
+  for (const sk of abFm.skills_list || []) {
+    if (!sk || !sk.name) continue;
+    const key = String(sk.name).trim().toLowerCase().replace(/[^a-z]+/g, "_");
+    const mark = sk.expertise ? ATLAS_SKILL_MARK.expertise : sk.prof ? ATLAS_SKILL_MARK.prof : sk.half ? ATLAS_SKILL_MARK.half : null;
+    if (mark) set(`${key}_prof`, mark);
+    // The sheet's own computed total (expertise, Jack of All Trades, item
+    // bonuses...) wins over Atlas' own recalculation, so both always agree.
+    set(`${key}_override`, atlasNumber(sk.mod));
+  }
+
+  // ---- Senses, languages, defenses, proficiencies ----
+  const passive = (label) => {
+    const row = (abFm.senses_list || []).find((s) => s && String(s.name).toLowerCase() === label);
+    return row ? atlasNumber(row.value) : null;
+  };
+  const pp = passive("passive perception");
+  const pi = passive("passive investigation");
+  const pins = passive("passive insight");
+  set("passive_perception", pp);
+  set("passive_investigation", pi);
+  set("passive_insight", pins);
+  const special = (abFm.special_senses_list || [])
+    .map((s) => {
+      if (s && typeof s === "object") return `${atlasText(s.name)} ${atlasText(s.range)}`.trim();
+      return atlasText(s);
+    })
+    .filter(Boolean);
+  const senseParts = [];
+  if (pp != null) senseParts.push(`Passive Perception ${pp}`);
+  if (pi != null) senseParts.push(`Passive Investigation ${pi}`);
+  if (pins != null) senseParts.push(`Passive Insight ${pins}`);
+  set("senses", [...special, ...senseParts].join(", "));
+  set("languages", (abFm.languages_list || []).map(atlasText).filter(Boolean).join(", "));
+
+  const defenses = (defensesFm.defenses_active || []).filter((d) => d && d.name);
+  const defensesOf = (re) => defenses.filter((d) => re.test(String(d.type || ""))).map((d) => atlasText(d.name)).join(", ");
+  set("damage_resistances", defensesOf(/resist/i));
+  set("damage_immunities", defenses.filter((d) => /immun/i.test(String(d.type || "")) && !/condition/i.test(String(d.type || ""))).map((d) => atlasText(d.name)).join(", "));
+  set("damage_vulnerabilities", defensesOf(/vulner/i));
+  set("condition_immunities", defensesOf(/condition/i));
+
+  try {
+    const profs = computeAutomaticProficiencies(
+      Object.assign({}, fm, { background: fm.background || abFm.background }),
+      abFm,
+      featuresFm.limited_uses || []
+    );
+    const names = (list) => (list || []).map((e) => atlasText(e && e.name)).filter(Boolean).join(", ");
+    set("armor_training", names(profs.armor));
+    set("weapon_proficiencies", names(profs.weapons));
+    set("tool_proficiencies", names(profs.tools));
+  } catch (e) {
+    // Proficiencies are display-only here; a lookup problem must not stop the sync.
+  }
+
+  // ---- Actions ----
+  const actionGroups = { actions: [], bonus_actions: [], reactions: [], otheractions: [] };
+  const usesGroups = { action_uses: [], bonus_action_uses: [], reaction_uses: [] };
+  for (const a of actionsFm.actions_list || []) {
+    if (!a || !atlasText(a.name)) continue;
+    const type = atlasText(a.type).toLowerCase();
+    const group = type === "bonus action" ? "bonus_actions" : type === "reaction" ? "reactions" : type === "action" ? "actions" : "otheractions";
+    const entry = { name: atlasText(a.name) };
+    if (atlasText(a.range)) entry.range = atlasText(a.range);
+    if (atlasText(a.hit)) entry.attack = atlasText(a.hit);
+    if (atlasText(a.damage) && atlasText(a.damage) !== "0") entry.damage = atlasText(a.damage);
+    if (atlasText(a.damage_type)) entry.type = atlasText(a.damage_type);
+    const uses = atlasUsesText(a);
+    if (uses) entry.uses = uses;
+    if (atlasText(a.description)) entry.desc = atlasText(a.description);
+    actionGroups[group].push(entry);
+    const counter = atlasCounter(a);
+    const usesKey = group === "bonus_actions" ? "bonus_action_uses" : group === "reactions" ? "reaction_uses" : "action_uses";
+    if (counter) usesGroups[usesKey].push(counter);
+  }
+  for (const [k, v] of Object.entries(actionGroups)) set(k, v);
+  for (const [k, v] of Object.entries(usesGroups)) set(k, v);
+
+  // ---- Features & traits ----
+  const featureGroups = { class_features: [], species_traits: [], feats: [] };
+  const featureUses = { class_feature_uses: [], species_trait_uses: [], feat_uses: [] };
+  for (const f of featuresFm.limited_uses || []) {
+    if (!f || !atlasText(f.name)) continue;
+    const cat = atlasText(f.category).toLowerCase();
+    const group = cat === "species trait" ? "species_traits" : cat === "feat" ? "feats" : "class_features";
+    const entry = { name: atlasText(f.name) };
+    const uses = atlasUsesText(f);
+    if (uses) entry.uses = uses;
+    if (atlasText(f.description)) entry.desc = atlasText(f.description);
+    featureGroups[group].push(entry);
+    const counter = atlasCounter(f);
+    if (counter) {
+      featureUses[group === "species_traits" ? "species_trait_uses" : group === "feats" ? "feat_uses" : "class_feature_uses"].push(counter);
+    }
+  }
+  for (const [k, v] of Object.entries(featureGroups)) set(k, v);
+  for (const [k, v] of Object.entries(featureUses)) set(k, v);
+
+  // ---- Spellcasting ----
+  const spellStats = computeSpellcastingStats(fm, abFm);
+  if (spellStats.spellAbilityKey) {
+    set("spellcasting_ability", ATLAS_ABILITY_LABEL[spellStats.spellAbilityKey]);
+    set("spell_save_dc", 8 + spellStats.atkBonus);
+    set("spell_attack_bonus", spellStats.atkBonus);
+  }
+  try {
+    const slotInfo = computeSpellSlotsForExport(fm, abFm, spellsFm);
+    const slotLevels = Object.keys(slotInfo.byLevel || {}).map(Number).filter((n) => n > 0).sort((a, b) => a - b);
+    set(
+      "slots",
+      slotLevels.map((lvl) => {
+        const s = slotInfo.byLevel[String(lvl)];
+        return { name: `${atlasOrdinal(lvl)} Level`, max: s.total, used: s.used };
+      })
+    );
+  } catch (e) {
+    // Slot tables missing for a homebrew class - leave the slots out.
+  }
+  const spellsByLevel = {};
+  for (const link of spellsFm.spells || []) {
+    const target = atlasLinkTarget(link);
+    if (!target) continue;
+    const spellFile = app.metadataCache.getFirstLinkpathDest(target, mainFile.path);
+    const sfm = fmOf(spellFile);
+    const lvl = Math.max(0, Math.min(9, Number(sfm["Spell level"]) || 0));
+    const display = spellFile ? spellFile.basename : target.split("/").pop();
+    const entry = { name: spellFile ? `[[${spellFile.path.replace(/\.md$/, "")}|${display}]]` : display };
+    const range = atlasText(sfm["Range / Area"]).replace(/\s*\(.*?\)\s*$/, "");
+    if (range) entry.range = range;
+    if (atlasText(sfm["Casting Time"])) entry.cost = atlasText(sfm["Casting Time"]).replace(/\*$/, "");
+    const duration = atlasText(sfm["Duration"]);
+    if (duration) entry.duration = sfm["Concentration"] && !/concentration/i.test(duration) ? `Concentration, ${duration}` : duration;
+    if (atlasText(sfm["Damage / Effect"])) entry.effect = atlasText(sfm["Damage / Effect"]);
+    if (atlasText(sfm["Attack / Save"])) entry.type = atlasText(sfm["Attack / Save"]);
+    if (atlasText(sfm["Upscale"])) entry.upcast = atlasText(sfm["Upscale"]);
+    (spellsByLevel[lvl] = spellsByLevel[lvl] || []).push(entry);
+  }
+  for (const [lvl, list] of Object.entries(spellsByLevel)) {
+    list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    set(ATLAS_SPELL_LEVEL_FIELDS[Number(lvl)], list);
+  }
+
+  // ---- Equipment & currency ----
+  set(
+    "equipment",
+    (inventoryFm.inventory_list || [])
+      .filter((it) => it && atlasText(it.name))
+      .map((it) => {
+        const bits = [`Quantity: ${Number(it.qty) || 1}`];
+        if (it.equipped) bits.push("equipped");
+        if (atlasText(it.weight)) bits.push(`${atlasText(it.weight)} lb.`);
+        return { name: atlasText(it.name), desc: bits.join(", ") };
+      })
+  );
+  const cur = inventoryFm.currency;
+  if (cur && typeof cur === "object") {
+    set("currency", ["cp", "sp", "ep", "gp", "pp"].map((k) => atlasNumber(cur[k], 0)));
+  }
+
+  // ---- Description ----
+  for (const k of ["age", "height", "weight", "eyes", "hair", "skin"]) set(k, atlasText(backgroundFm[k]));
+  set("appearance", atlasText(backgroundFm.appearance_notes));
+  set("personality", atlasText(backgroundFm.personality_traits));
+  const bonds = [
+    atlasText(backgroundFm.ideals) && `Ideals: ${atlasText(backgroundFm.ideals)}`,
+    atlasText(backgroundFm.bonds) && `Bonds: ${atlasText(backgroundFm.bonds)}`,
+    atlasText(backgroundFm.flaws) && `Flaws: ${atlasText(backgroundFm.flaws)}`,
+  ].filter(Boolean);
+  set("notes", bonds.join("\n"));
+
+  out.character_sheet = `[[${mainFile.path.replace(/\.md$/, "")}|${name}]]`;
+  return out;
+}
+
+function buildAtlasCharacterNote(app, mainFile, prevFm) {
+  const fm = buildAtlasCharacterFrontmatter(app, mainFile);
+  const prevPool = prevFm && Array.isArray(prevFm.hit_dice_pool) ? prevFm.hit_dice_pool : [];
+  if (Array.isArray(fm.hit_dice_pool) && prevPool.length) {
+    fm.hit_dice_pool = fm.hit_dice_pool.map((row) => {
+      const old = prevPool.find((r) => r && atlasText(r.name) === row.name);
+      const used = old ? Math.max(0, Math.min(row.max, Number(old.used) || 0)) : 0;
+      return used ? Object.assign({}, row, { used }) : row;
+    });
+  }
+  return (
+    `---\n${stringifyYaml(fm)}---\n\n` +
+    `> [!info] Atlas VTT statblock\n` +
+    `> Generated automatically by One DnD Character Sheet from ${fm.character_sheet}.\n` +
+    `> Edit the character sheet, not this note - changes made here are replaced on the next sync.\n`
+  );
+}
+
+class AtlasCharacterSync {
+  constructor(plugin) {
+    this.plugin = plugin;
+    this.app = plugin.app;
+    this.timers = new Map();
+    this.running = new Map();
+    this.templateChecked = false;
+    // path -> exact text this plugin last wrote, so its own writes aren't
+    // mistaken for edits made in Atlas.
+    this.lastWritten = new Map();
+  }
+
+  isAtlasInstalled() {
+    const plugins = this.app.plugins;
+    if (!plugins) return false;
+    if (plugins.enabledPlugins && plugins.enabledPlugins.has && plugins.enabledPlugins.has(ATLAS_PLUGIN_ID)) return true;
+    return !!(plugins.plugins && plugins.plugins[ATLAS_PLUGIN_ID]);
+  }
+
+  isEnabled() {
+    return this.plugin.settings.atlasSync !== false && this.isAtlasInstalled();
+  }
+
+  register() {
+    const plugin = this.plugin;
+    plugin.registerEvent(this.app.metadataCache.on("changed", (file, data, cache) => this.onFileChanged(file, data, cache)));
+    plugin.addCommand({
+      id: "sync-characters-to-atlas",
+      name: "Sync all characters to Atlas VTT",
+      callback: () => this.syncAll(true),
+    });
+    plugin.register(() => {
+      for (const t of this.timers.values()) clearTimeout(t);
+      this.timers.clear();
+    });
+    this.app.workspace.onLayoutReady(() => {
+      const t = setTimeout(() => {
+        this.timers.delete("__startup__");
+        if (this.isEnabled()) this.syncAll(false);
+      }, 4000);
+      this.timers.set("__startup__", t);
+    });
+  }
+
+  mainFileForId(id) {
+    for (const [path, fid] of dataFolderIdByPath) {
+      if (fid === id) {
+        const f = this.app.vault.getAbstractFileByPath(path);
+        if (f instanceof TFile) return f;
+      }
+    }
+    return null;
+  }
+
+  onFileChanged(file, data, cache) {
+    if (!(file instanceof TFile) || file.extension !== "md") return;
+    if (!this.isEnabled()) return;
+    if (file.path.startsWith(`${SHARED_FOLDER}/`)) {
+      const parts = file.path.slice(SHARED_FOLDER.length + 1).split("/");
+      if (parts.length !== 2) return;
+      if (isAtlasCompanionName(parts[1])) {
+        // A box ticked in Atlas (or anything else editing the Atlas copy):
+        // carry the counters back into the character sheet.
+        if (typeof data === "string" && data !== this.lastWritten.get(file.path)) {
+          const main = this.mainFileForId(parts[0]);
+          if (main) {
+            this.applyAtlasCounters(main, (cache && cache.frontmatter) || {}).catch((e) =>
+              console.error("One DnD Character Sheet: Atlas -> sheet sync failed", e)
+            );
+          }
+        }
+        return;
+      }
+      const main = this.mainFileForId(parts[0]);
+      if (main) this.schedule(main);
+      return;
+    }
+    const id = dataFolderIdByPath.get(file.path) || getDataFolderId(this.app, file);
+    if (id) {
+      dataFolderIdByPath.set(file.path, id);
+      this.schedule(file);
+    }
+  }
+
+  schedule(mainFile) {
+    const key = mainFile.path;
+    if (this.timers.has(key)) clearTimeout(this.timers.get(key));
+    this.timers.set(
+      key,
+      setTimeout(() => {
+        this.timers.delete(key);
+        this.syncCharacter(mainFile).catch((e) => console.error("One DnD Character Sheet: Atlas sync failed", e));
+      }, ATLAS_SYNC_DELAY_MS)
+    );
+  }
+
+  async ensureTemplate() {
+    if (this.templateChecked) return;
+    const adapter = this.app.vault.adapter;
+    const revisionOf = (tpl) => {
+      const m = /layout revision (\d+)/.exec(String((tpl && tpl.source && tpl.source.modification) || ""));
+      return m ? Number(m[1]) : 0;
+    };
+    let foundPath = null;
+    let foundRevision = 0;
+    if (await adapter.exists(ATLAS_TEMPLATE_FOLDER)) {
+      const listing = await adapter.list(ATLAS_TEMPLATE_FOLDER);
+      for (const p of listing.files || []) {
+        if (!p.endsWith(".atlastemplate")) continue;
+        try {
+          const tpl = JSON.parse(await adapter.read(p));
+          if (tpl.id === ATLAS_TEMPLATE_ID) {
+            foundPath = p;
+            foundRevision = revisionOf(tpl);
+            break;
+          }
+          if (ATLAS_LEGACY_TEMPLATE_IDS.includes(tpl.id) && !foundPath) {
+            foundPath = p;
+            foundRevision = 0;
+          }
+        } catch (e) {
+          // Not valid JSON - not ours to judge, skip it.
+        }
+      }
+    } else {
+      let built = "";
+      for (const part of ATLAS_TEMPLATE_FOLDER.split("/")) {
+        built = built ? `${built}/${part}` : part;
+        if (!(await adapter.exists(built))) await adapter.mkdir(built);
+      }
+    }
+    const json = JSON.stringify(ATLAS_CHARACTER_TEMPLATE, null, 2);
+    // Write through the vault API when possible so Atlas' template store gets
+    // the create/modify event straight away.
+    const writeTemplate = async (path) => {
+      const existing = this.app.vault.getAbstractFileByPath(path);
+      if (existing instanceof TFile) await this.app.vault.modify(existing, json);
+      else if (!(await adapter.exists(path))) await this.app.vault.create(path, json);
+      else await adapter.write(path, json);
+    };
+    if (!foundPath) {
+      if (!(await adapter.exists(ATLAS_TEMPLATE_FILE))) await writeTemplate(ATLAS_TEMPLATE_FILE);
+    } else if (foundRevision < ATLAS_TEMPLATE_REVISION) {
+      // An older layout this plugin wrote earlier - replace it in place.
+      // A copy someone has re-saved from Atlas' template editor keeps its
+      // revision number, so it's only replaced when this plugin ships a
+      // newer layout.
+      await writeTemplate(foundPath);
+    }
+    this.templateChecked = true;
+  }
+
+  // Returns "created" | "updated" | "unchanged" | "skipped".
+  async syncCharacter(mainFile) {
+    if (!this.isEnabled()) return "skipped";
+    if (!(mainFile instanceof TFile) || !this.app.vault.getAbstractFileByPath(mainFile.path)) return "skipped";
+    const id = getDataFolderId(this.app, mainFile);
+    if (!id) return "skipped";
+    const folder = this.app.vault.getAbstractFileByPath(`${SHARED_FOLDER}/${id}`);
+    if (!(folder instanceof TFolder)) return "skipped";
+    // Only character sheets get an Atlas statblock - other notes with a
+    // data_id (e.g. a story note with a character-tracker/encounter block)
+    // have no Abilities companion.
+    if (!(this.app.vault.getAbstractFileByPath(`${SHARED_FOLDER}/${id}/Abilities.md`) instanceof TFile)) return "skipped";
+    // One sync per character at a time; a change arriving mid-sync just
+    // queues one more pass afterwards.
+    if (this.running.get(mainFile.path)) {
+      this.running.set(mainFile.path, "again");
+      return "skipped";
+    }
+    this.running.set(mainFile.path, "busy");
+    try {
+      await this.ensureTemplate();
+      const characterName = atlasText(((this.app.metadataCache.getFileCache(mainFile) || {}).frontmatter || {}).character_name) || mainFile.basename;
+      const path = `${SHARED_FOLDER}/${id}/${atlasNoteFileName(characterName)}`;
+      let existing = this.app.vault.getAbstractFileByPath(path);
+      if (!(existing instanceof TFile)) {
+        // An older copy under another name (the original "Atlas.md", or the
+        // character's previous name): rename it rather than leave a second
+        // statblock behind, so tokens already linked to it keep working.
+        const old = folder.children.find((c) => c instanceof TFile && isAtlasCompanionName(c.name));
+        if (old) {
+          await this.app.fileManager.renameFile(old, path);
+          existing = this.app.vault.getAbstractFileByPath(path);
+        }
+      }
+      // Spent hit dice exist only in Atlas (the sheet doesn't track them) -
+      // keep whatever Atlas has instead of resetting them on every sync.
+      const prevFm = existing instanceof TFile ? ((this.app.metadataCache.getFileCache(existing) || {}).frontmatter || {}) : {};
+      const content = buildAtlasCharacterNote(this.app, mainFile, prevFm);
+      if (existing instanceof TFile) {
+        if ((await this.app.vault.read(existing)) === content) {
+          this.lastWritten.set(path, content);
+          return "unchanged";
+        }
+        this.lastWritten.set(path, content);
+        await this.app.vault.modify(existing, content);
+        return "updated";
+      }
+      this.lastWritten.set(path, content);
+      await this.app.vault.create(path, content);
+      return "created";
+    } finally {
+      const again = this.running.get(mainFile.path) === "again";
+      this.running.delete(mainFile.path);
+      if (again) this.schedule(mainFile);
+    }
+  }
+
+  // Atlas -> sheet: copies the counters Atlas can change (ticked boxes /
+  // steppers) back into the character's own data. Only "used" values are
+  // ever written; everything else in the Atlas copy stays one-way.
+  async applyAtlasCounters(mainFile, afm) {
+    const rowsOf = (key) => (Array.isArray(afm[key]) ? afm[key] : []).filter((r) => r && typeof r === "object");
+    const usedOf = (row) => Math.max(0, Number(row.used) || 0);
+    const firstUsed = (key) => {
+      const r = rowsOf(key)[0];
+      return r ? usedOf(r) : null;
+    };
+    let touched = false;
+
+    // Death saves + Heroic Inspiration live on the main note.
+    const succ = firstUsed("death_save_success");
+    const fail = firstUsed("death_save_failure");
+    const insp = firstUsed("heroic_inspiration");
+    const mainFm = (this.app.metadataCache.getFileCache(mainFile) || {}).frontmatter || {};
+    const boxesDiffer = (prefix, n) => n !== null && [1, 2, 3].some((i) => !!mainFm[`${prefix}${i}`] !== i <= n);
+    if (boxesDiffer("death_save_success_", succ) || boxesDiffer("death_save_fail_", fail) || (insp !== null && !!mainFm.heroic_inspiration !== insp >= 1)) {
+      await this.app.fileManager.processFrontMatter(mainFile, (fm) => {
+        if (succ !== null) for (let i = 1; i <= 3; i++) fm[`death_save_success_${i}`] = i <= succ;
+        if (fail !== null) for (let i = 1; i <= 3; i++) fm[`death_save_fail_${i}`] = i <= fail;
+        if (insp !== null) fm.heroic_inspiration = insp >= 1;
+      });
+      touched = true;
+    }
+
+    const companionFile = (kind) => {
+      const f = this.app.vault.getAbstractFileByPath(companionFilePath(this.app, mainFile, kind));
+      return f instanceof TFile ? f : null;
+    };
+    const companionFm = (file) => (file && (this.app.metadataCache.getFileCache(file) || {}).frontmatter) || {};
+
+    // Limited uses (Features tab).
+    const featureRows = [...rowsOf("class_feature_uses"), ...rowsOf("species_trait_uses"), ...rowsOf("feat_uses")];
+    const featuresFile = companionFile("Features");
+    const changedFeatures = [];
+    if (featuresFile && featureRows.length) {
+      const list = companionFm(featuresFile).limited_uses || [];
+      const wants = new Map();
+      for (const row of featureRows) {
+        const f = list.find((x) => x && atlasText(x.name) === atlasText(row.name) && Number(x.max) > 0);
+        if (f && Math.min(usedOf(row), Number(f.max)) !== (Number(f.used) || 0)) wants.set(atlasText(row.name), Math.min(usedOf(row), Number(f.max)));
+      }
+      if (wants.size) {
+        let resultFfm;
+        await this.app.fileManager.processFrontMatter(featuresFile, (ffm) => {
+          for (const f of ffm.limited_uses || []) {
+            if (f && wants.has(atlasText(f.name))) {
+              f.used = wants.get(atlasText(f.name));
+              changedFeatures.push(f);
+            }
+          }
+          resultFfm = ffm;
+        });
+        touched = true;
+        try {
+          await refreshLiveFeaturesTrackers(mainFile.path, resultFfm);
+        } catch (e) {
+          // Open sheets catch up on their next render anyway.
+        }
+      }
+    }
+
+    // Action uses (Actions tab) - plus the Actions-tab mirrors of any
+    // feature changed above, the same way the sheet's own Uses boxes do it.
+    const actionRows = [...rowsOf("action_uses"), ...rowsOf("bonus_action_uses"), ...rowsOf("reaction_uses")];
+    const actionsFile = companionFile("Actions");
+    if (actionsFile && (actionRows.length || changedFeatures.length)) {
+      const list = companionFm(actionsFile).actions_list || [];
+      const mirrorUsed = new Map(changedFeatures.map((f) => [featureActionSourceId(f.name), f.used]));
+      const wantsFor = (a) => {
+        if (!a) return undefined;
+        if (a.source === "feature-linked") return mirrorUsed.has(a.source_id) ? mirrorUsed.get(a.source_id) : undefined;
+        if (!(Number(a.max) > 0)) return undefined;
+        const row = actionRows.find((r) => atlasText(r.name) === atlasText(a.name));
+        return row ? Math.min(usedOf(row), Number(a.max)) : undefined;
+      };
+      if (list.some((a) => { const w = wantsFor(a); return w !== undefined && w !== (Number(a.used) || 0); })) {
+        await this.app.fileManager.processFrontMatter(actionsFile, (afm2) => {
+          for (const a of afm2.actions_list || []) {
+            const w = wantsFor(a);
+            if (w !== undefined) a.used = w;
+          }
+        });
+        touched = true;
+      }
+    }
+
+    // Spell slots (Spells tab). A Warlock multiclassed with another caster
+    // keeps pact and regular slots apart, which one combined Atlas row per
+    // level can't express - those stay sheet-only.
+    const slotRows = rowsOf("slots");
+    const spellsFile = companionFile("Spells");
+    if (spellsFile && slotRows.length) {
+      const progressions = atlasText(mainFm.class).split(" / ").map((c) => CLASS_PROGRESSION[c.trim().toLowerCase()]).filter(Boolean);
+      const split = progressions.includes("pact") && progressions.some((t) => t !== "pact");
+      const sfm = companionFm(spellsFile);
+      const usedNow = sfm.spell_slots_used || {};
+      const hasSplitKeys = Object.keys(usedNow).some((k) => /^(std|pact)_/.test(k));
+      if (!split && !hasSplitKeys) {
+        const wants = {};
+        for (const row of slotRows) {
+          const m = /^(\d+)/.exec(atlasText(row.name));
+          if (!m) continue;
+          const lvl = m[1];
+          const max = Number(row.max) || 0;
+          const used = Math.min(usedOf(row), max);
+          if (used !== (Number(usedNow[lvl]) || 0)) wants[lvl] = used;
+        }
+        if (Object.keys(wants).length) {
+          await this.app.fileManager.processFrontMatter(spellsFile, (fm) => {
+            fm.spell_slots_used = Object.assign({}, fm.spell_slots_used || {}, wants);
+          });
+          touched = true;
+        }
+      }
+    }
+    return touched;
+  }
+
+  async syncAll(showNotice) {
+    if (!this.isAtlasInstalled()) {
+      if (showNotice) new Notice("Atlas VTT isn't installed in this vault, so there's nothing to sync to.");
+      return;
+    }
+    if (this.plugin.settings.atlasSync === false) {
+      if (showNotice) new Notice("Atlas VTT sync is turned off in the One DnD Character Sheet settings.");
+      return;
+    }
+    const counts = { created: 0, updated: 0, unchanged: 0, skipped: 0, failed: 0 };
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      if (file.path.startsWith(`${SHARED_FOLDER}/`)) continue;
+      if (!getDataFolderId(this.app, file)) continue;
+      try {
+        counts[await this.syncCharacter(file)]++;
+      } catch (e) {
+        counts.failed++;
+        console.error(`One DnD Character Sheet: Atlas sync failed for ${file.path}`, e);
+      }
+    }
+    if (showNotice) {
+      const done = counts.created + counts.updated + counts.unchanged;
+      new Notice(
+        `Atlas VTT: ${done} character${done === 1 ? "" : "s"} synced` +
+          (counts.created ? `, ${counts.created} new` : "") +
+          (counts.updated ? `, ${counts.updated} updated` : "") +
+          (counts.failed ? `, ${counts.failed} failed (see console)` : "") +
+          "."
+      );
+    }
+  }
+}
+
+// ---- Unused character data cleanup ----
+//
+// A companion folder "<data folder>/<id>/" belongs to whichever note has
+// `data_id: <id>` in its frontmatter. Folders nobody points at any more
+// pile up when a character note is deleted outside Obsidian (or before the
+// delete cascade in onload() knew its id), and from older bugs that minted
+// a fresh id for an already-id'd note (see ensureDataFolderId). This finds
+// them - plus loose "<name> - <Kind>.md" files left over from the original
+// pre-folder layout - and moves them into "<data folder>/_Deleted/" after
+// the user confirms, rather than deleting anything outright.
+const DATA_FOLDER_DELETED = "_Deleted";
+const OLD_LAYOUT_COMPANION_RE = /^.+ - (Abilities|Actions|Conditions|Defenses|Features|Inventory|Notes|Spells|Background|Creatures)\.md$/;
+
+function findUnusedCharacterData(app) {
+  const root = app.vault.getAbstractFileByPath(SHARED_FOLDER);
+  if (!(root instanceof TFolder)) return { folders: [], files: [] };
+  const usedIds = new Set();
+  for (const f of app.vault.getMarkdownFiles()) {
+    if (f.path.startsWith(`${SHARED_FOLDER}/`)) continue;
+    const id = getDataFolderId(app, f);
+    if (id) usedIds.add(String(id));
+  }
+  for (const id of dataFolderIdByPath.values()) usedIds.add(String(id));
+  const folders = [];
+  const files = [];
+  for (const child of root.children) {
+    if (child instanceof TFolder) {
+      // "_Party", "_Deleted" and anything else not shaped like a data id is
+      // never treated as a character's folder.
+      if (child.name.startsWith("_") || !/^[0-9a-f]{8}$/.test(child.name)) continue;
+      if (!usedIds.has(child.name)) folders.push(child);
+    } else if (child instanceof TFile && OLD_LAYOUT_COMPANION_RE.test(child.name)) {
+      files.push(child);
+    }
+  }
+  return { folders, files };
+}
+
+async function moveUnusedCharacterData(app, found) {
+  const target = `${SHARED_FOLDER}/${DATA_FOLDER_DELETED}`;
+  if (!app.vault.getAbstractFileByPath(target)) await app.vault.createFolder(target);
+  let moved = 0;
+  const failed = [];
+  for (const item of [...found.folders, ...found.files]) {
+    let dest = `${target}/${item.name}`;
+    for (let n = 2; app.vault.getAbstractFileByPath(dest); n++) {
+      dest = item instanceof TFile ? `${target}/${item.basename} (${n}).${item.extension}` : `${target}/${item.name} (${n})`;
+    }
+    try {
+      await app.vault.rename(item, dest);
+      moved++;
+    } catch (e) {
+      failed.push(item.name);
+      console.error(`One DnD Character Sheet: couldn't move ${item.path}`, e);
+    }
+  }
+  return { moved, failed };
+}
+
+class UnusedCharacterDataModal extends Modal {
+  constructor(app, found, onConfirm) {
+    super(app);
+    this.found = found;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: "Unused character sheet data" });
+    const total = this.found.folders.length + this.found.files.length;
+    if (!total) {
+      contentEl.createEl("p", { text: "Every data folder belongs to a note in this vault. Nothing to clean up." });
+      new Setting(contentEl).addButton((b) => b.setButtonText("Close").onClick(() => this.close()));
+      return;
+    }
+    contentEl.createEl("p", {
+      text:
+        `These ${total} item${total === 1 ? "" : "s"} in "${SHARED_FOLDER}" don't belong to any note in this vault any more. ` +
+        `They'll be moved to "${SHARED_FOLDER}/${DATA_FOLDER_DELETED}", not deleted - delete that folder yourself once you're sure.`,
+    });
+    const list = contentEl.createEl("ul");
+    for (const f of this.found.folders) {
+      const kinds = f.children.filter((c) => c instanceof TFile).map((c) => c.basename).sort();
+      list.createEl("li", { text: `${f.name}/ (${kinds.join(", ") || "empty"})` });
+    }
+    for (const f of this.found.files) list.createEl("li", { text: `${f.name} (old file layout)` });
+    new Setting(contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText(`Move ${total} to ${DATA_FOLDER_DELETED}`)
+          .setCta()
+          .onClick(async () => {
+            this.close();
+            await this.onConfirm();
+          })
+      );
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+async function openUnusedCharacterDataCleanup(app) {
+  const found = findUnusedCharacterData(app);
+  new UnusedCharacterDataModal(app, found, async () => {
+    const { moved, failed } = await moveUnusedCharacterData(app, found);
+    new Notice(
+      `Moved ${moved} unused item${moved === 1 ? "" : "s"} to "${SHARED_FOLDER}/${DATA_FOLDER_DELETED}".` +
+        (failed.length ? ` Couldn't move: ${failed.join(", ")}.` : "")
+    );
+  }).open();
+}
+
 module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
   async onload() {
     this.SPELL_SLOT_TABLES = SPELL_SLOT_TABLES;
@@ -19505,6 +20391,45 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
       const id = getDataFolderId(this.app, f);
       if (id) dataFolderIdByPath.set(f.path, id);
     }
+
+    // Keep dataFolderIdByPath complete. The priming loop above only sees
+    // what metadataCache already had at plugin load - early in startup that
+    // can be incomplete, and a character note deleted before it was ever
+    // opened this session then had no known id, so its data folder was
+    // left behind. Re-prime once the cache has finished indexing, and
+    // record every note that gains or changes a data_id from then on.
+    const primeDataFolderIds = () => {
+      for (const f of this.app.vault.getMarkdownFiles()) {
+        if (f.path.startsWith(`${SHARED_FOLDER}/`)) continue;
+        const fid = getDataFolderId(this.app, f);
+        if (fid) dataFolderIdByPath.set(f.path, fid);
+      }
+    };
+    if (this.app.metadataCache.resolved) primeDataFolderIds();
+    else {
+      const ref = this.app.metadataCache.on("resolved", () => {
+        this.app.metadataCache.offref(ref);
+        primeDataFolderIds();
+      });
+      this.registerEvent(ref);
+    }
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (file) => {
+        if (!(file instanceof TFile) || file.path.startsWith(`${SHARED_FOLDER}/`)) return;
+        const fid = getDataFolderId(this.app, file);
+        if (fid) dataFolderIdByPath.set(file.path, fid);
+      })
+    );
+
+    this.addCommand({
+      id: "clean-up-unused-character-data",
+      name: "Clean up unused character sheet data",
+      callback: () => openUnusedCharacterDataCleanup(this.app),
+    });
+
+    // Atlas VTT statblock companion files - see AtlasCharacterSync.
+    this.atlasSync = new AtlasCharacterSync(this);
+    this.atlasSync.register();
 
     this.addRibbonIcon("user", "Create Character sheet", () => {
       this.openNewCharacterModal();
@@ -19551,7 +20476,9 @@ module.exports = class Dnd2024CharacterSheetPlugin extends Plugin {
         if (!(file instanceof TFile) || file.extension !== "md") return;
         if (file.path.startsWith(`${SHARED_FOLDER}/`)) return;
 
-        const id = dataFolderIdByPath.get(file.path);
+        // Fall back to whatever frontmatter Obsidian still has cached for
+        // the note, in case it was never recorded in the map this session.
+        const id = dataFolderIdByPath.get(file.path) || getDataFolderId(this.app, file);
         const charFolderPath = id ? `${SHARED_FOLDER}/${id}` : `${SHARED_FOLDER}/${file.basename}`;
         const charFolder = this.app.vault.getAbstractFileByPath(charFolderPath);
         if (!(charFolder instanceof TFolder)) return;
